@@ -52,9 +52,9 @@ public static partial class QaPromptBuilder
     /// <summary>Stops document text from closing or opening a source block early.</summary>
     internal static string Neutralize(string text) => SourceTag().Replace(text, m => "<​" + m.Value[1..]);
 
-    private static string Attribute(string value) =>
+    internal static string Attribute(string value) =>
         Neutralize(value).Replace("\"", "'").Replace('\n', ' ').Replace('\r', ' ');
 
-    [GeneratedRegex(@"</?\s*source\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"</?\s*(?:source|partial_summary|document)\b", RegexOptions.IgnoreCase)]
     private static partial Regex SourceTag();
 }

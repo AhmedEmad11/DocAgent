@@ -170,6 +170,7 @@ auth.MapExternalAuth();
 app.MapMe();
 app.MapDocuments();
 app.MapAsk();
+app.MapWorkflows();
 
 app.Run();
 

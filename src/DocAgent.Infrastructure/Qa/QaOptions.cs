@@ -4,6 +4,9 @@ public sealed class QaOptions
 {
     public const string SectionName = "Qa";
 
+    /// <summary>How /ask answers: "Agent" (tools, verification; default) or "SinglePass" (Phase 3 retrieve-and-prompt).</summary>
+    public QaMode Mode { get; set; } = QaMode.Agent;
+
     /// <summary>Overall time allowed for one question (retrieval plus the model call).</summary>
     public int TimeoutSeconds { get; set; } = 120;
 
@@ -15,4 +18,10 @@ public sealed class QaOptions
 
     /// <summary>Maximum length of the quote returned with each citation.</summary>
     public int QuoteMaxChars { get; set; } = 300;
+}
+
+public enum QaMode
+{
+    Agent,
+    SinglePass,
 }

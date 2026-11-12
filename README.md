@@ -7,7 +7,7 @@ A document Q&A API: users upload documents and ask questions about them. Answers
 - Progress log: [docs/PROGRESS.md](docs/PROGRESS.md)
 
 ## Status
-Phase 2 (document ingestion) implemented, pending review. See the progress log for details.
+Phase 4 (agent workflows) implemented, pending review. See the progress log for details.
 
 ## Prerequisites
 - .NET 10 SDK
@@ -24,6 +24,7 @@ Phase 2 (document ingestion) implemented, pending review. See the progress log f
 | `src/DocAgent.Core` | Domain models, interfaces, agent and tools |
 | `src/DocAgent.Infrastructure` | Database, parsers, embeddings, LLM providers |
 | `tests/DocAgent.UnitTests` | Unit tests |
+| `tests/DocAgent.EvalTests` | Agent evaluation set (English + Arabic) against the real model; skipped unless `DOCAGENT_OLLAMA_TESTS=1`, plus the grader's unit tests |
 | `tests/DocAgent.IntegrationTests` | Integration tests against real PostgreSQL + pgvector (Testcontainers) |
 
 ## Embedding model
@@ -47,3 +48,16 @@ Health endpoints:
 ```bash
 dotnet test
 ```
+
+## Ask, summarize, compare (Phase 4)
+- `POST /api/v1/ask` answers with an agent (Microsoft Agent Framework) that searches the user's documents with tools, then a separate verification pass removes unsupported claims. Response: `answer, notFound, citations[], mode, provider, model, incomplete, toolCalls, notices[]`. `Qa:Mode=SinglePass` selects the Phase 3 retrieve-and-prompt path (also the fallback when the agent loop breaks).
+- `POST /api/v1/ask/stream` is the same as Server-Sent Events: `searching`, `tool_call` (tool name only), `verifying`, then `answer` (the JSON above) or `error`.
+- `POST /api/v1/documents/{id}/summary` (body optional: `{"focus": "..."}`) and `POST /api/v1/documents/compare` (`{"documentIdA", "documentIdB", "focus"?}`) run map-reduce over the document's chunks.
+- Limits travel with the LLM route: `Agent:Limits:Development|Demo|Byok` = `MaxToolCalls` and `TimeoutSeconds` (development uses the BYOK values until the demo/BYOK routes exist).
+
+## Agent evaluation (SRS D32)
+`tests/DocAgent.EvalTests` holds a fixed bilingual corpus (`Corpus/`) and the question set (`eval-set.json`: answerable questions of several types, at least 40% Arabic, plus unanswerable ones). It needs Docker, the embedding model and Ollama with `gemma4:12b`, and is skipped in normal `dotnet test` runs (only its grader unit tests run):
+```bash
+DOCAGENT_OLLAMA_TESTS=1 dotnet test tests/DocAgent.EvalTests --filter "FullyQualifiedName~AgentEvalTests"
+```
+It prints a results table (id, language, type, pass/fail, latency, tool calls) and the totals against the targets (at least 80% of answerable questions correct with a citation to an expected document; 100% of unanswerable ones answered as not found). Optional environment: `DOCAGENT_EVAL_ONLY=en-01,ar-` (ids or prefixes), `DOCAGENT_EVAL_MODE=SinglePass`, `DOCAGENT_EVAL_OUT=<results file>` (full answers are written next to it as `.answers.json`), `DOCAGENT_OLLAMA_ENDPOINT`/`_MODEL`/`_THINK`.

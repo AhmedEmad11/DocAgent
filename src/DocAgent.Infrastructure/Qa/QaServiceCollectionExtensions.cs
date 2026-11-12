@@ -1,3 +1,4 @@
+using DocAgent.Infrastructure.Agents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +10,7 @@ public static class QaServiceCollectionExtensions
     {
         services.Configure<QaOptions>(configuration.GetSection(QaOptions.SectionName));
         services.AddScoped<QaService>();
+        services.AddAgents(configuration);
         return services;
     }
 }

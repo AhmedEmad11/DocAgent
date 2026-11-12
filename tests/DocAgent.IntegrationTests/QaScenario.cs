@@ -15,11 +15,23 @@ namespace DocAgent.IntegrationTests;
 /// user A owns a two-page PDF and a text file; user B owns a similar price document; plus a user without documents,
 /// an unconfirmed user and a document that is not Ready.
 /// </summary>
-public sealed class QaScenario(PostgresFixture postgres) : IAsyncLifetime
+public class QaScenario : IAsyncLifetime
 {
+    private readonly PostgresFixture postgres;
+
+    public QaScenario(PostgresFixture postgres)
+    {
+        this.postgres = postgres;
+        LlmFactory = new FakeLlmClientFactory(Llm);
+    }
+
     public const string PricingQuestion = "How much does the Pro plan cost per month?";
 
+    /// <summary>The Phase 3 tests exercise the single-pass path; agent tests use <see cref="AgentQaScenario"/>.</summary>
+    public virtual string Mode => "SinglePass";
+
     public FakeChatClient Llm { get; } = new();
+    public FakeLlmClientFactory LlmFactory { get; }
     public DocAgentApiFactory Factory { get; private set; } = null!;
     public string ConnectionString { get; private set; } = null!;
     public TestUser UserA { get; private set; } = null!;
@@ -37,8 +49,8 @@ public sealed class QaScenario(PostgresFixture postgres) : IAsyncLifetime
         ConnectionString = await TestDatabase.CreateAsync(postgres);
         Factory = new DocAgentApiFactory(
             ConnectionString,
-            new Dictionary<string, string?> { ["Documents:Ingestion:PollIntervalSeconds"] = "1" },
-            configureServices: FakeLlmClientFactory.Register(Llm));
+            new Dictionary<string, string?> { ["Documents:Ingestion:PollIntervalSeconds"] = "1", ["Qa:Mode"] = Mode },
+            configureServices: FakeLlmClientFactory.Register(LlmFactory));
 
         UserA = await DocumentTestHelpers.CreateUserAsync(Factory);
         UserB = await DocumentTestHelpers.CreateUserAsync(Factory);
@@ -101,4 +113,10 @@ public sealed class QaScenario(PostgresFixture postgres) : IAsyncLifetime
     }
 
     private const string EmbeddingOptions_PassagePrefix = DocAgent.Infrastructure.Embeddings.EmbeddingOptions.PassagePrefix;
+}
+
+/// <summary>Same data, but /ask runs the agent (the default mode).</summary>
+public sealed class AgentQaScenario(PostgresFixture postgres) : QaScenario(postgres)
+{
+    public override string Mode => "Agent";
 }

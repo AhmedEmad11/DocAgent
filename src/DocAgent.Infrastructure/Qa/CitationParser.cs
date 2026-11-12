@@ -11,7 +11,11 @@ public static partial class CitationParser
     /// Finds [n] / [n, m] markers (Latin or Arabic-Indic digits). Returns the distinct valid source numbers
     /// (1..<paramref name="sourceCount"/>) in ascending order and the answer with invalid numbers removed from the markers.
     /// </summary>
-    public static Result Parse(string answer, int sourceCount)
+    public static Result Parse(string answer, int sourceCount) =>
+        Parse(answer, n => n >= 1 && n <= sourceCount);
+
+    /// <summary>Same, with an arbitrary rule for which source numbers are valid.</summary>
+    public static Result Parse(string answer, Func<int, bool> isValid)
     {
         var valid = new SortedSet<int>();
         var cleaned = Marker().Replace(answer, match =>
@@ -20,7 +24,7 @@ public static partial class CitationParser
             foreach (Match number in Number().Matches(match.Groups[2].Value))
             {
                 var value = ToInt(number.Value);
-                if (value >= 1 && value <= sourceCount)
+                if (isValid(value))
                 {
                     valid.Add(value);
                     keep.Add(value);

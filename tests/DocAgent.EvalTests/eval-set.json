@@ -1,0 +1,649 @@
+{
+ "items": [
+  {
+   "id": "en-01",
+   "lang": "en",
+   "type": "single",
+   "answerable": true,
+   "question": "How many days of paid vacation do full-time employees get per year?",
+   "facts": [
+    [
+     "25"
+    ]
+   ],
+   "documents": [
+    "handbook.txt"
+   ]
+  },
+  {
+   "id": "en-02",
+   "lang": "en",
+   "type": "code",
+   "answerable": true,
+   "question": "What does error code ERR-5043 mean and what should I do about it?",
+   "facts": [
+    [
+     "firmware"
+    ],
+    [
+     "reset button",
+     "reset"
+    ]
+   ],
+   "documents": [
+    "router-manual.txt"
+   ]
+  },
+  {
+   "id": "en-03",
+   "lang": "en",
+   "type": "code",
+   "answerable": true,
+   "question": "What does invoice INV-2026-0417 cover and what is its amount?",
+   "facts": [
+    [
+     "data migration"
+    ],
+    [
+     "12400",
+     "12,400"
+    ]
+   ],
+   "documents": [
+    "consulting-agreement.txt"
+   ]
+  },
+  {
+   "id": "en-04",
+   "lang": "en",
+   "type": "multi",
+   "answerable": true,
+   "question": "Who was the principal investigator of the clinical study and how many participants were enrolled?",
+   "facts": [
+    [
+     "Halvorsen"
+    ],
+    [
+     "312"
+    ]
+   ],
+   "documents": [
+    "trial-summary.txt"
+   ]
+  },
+  {
+   "id": "en-05",
+   "lang": "en",
+   "type": "multi",
+   "answerable": true,
+   "question": "Under the consulting agreement, within how many days must invoices be paid, and how much notice is needed to terminate it?",
+   "facts": [
+    [
+     "45"
+    ],
+    [
+     "90"
+    ]
+   ],
+   "documents": [
+    "consulting-agreement.txt"
+   ]
+  },
+  {
+   "id": "en-06",
+   "lang": "en",
+   "type": "cross-doc",
+   "answerable": true,
+   "question": "What is the web address of the router administration page, and how many days of paid vacation do employees get?",
+   "facts": [
+    [
+     "192.168.7.1"
+    ],
+    [
+     "25"
+    ]
+   ],
+   "documents": [
+    "router-manual.txt",
+    "handbook.txt"
+   ]
+  },
+  {
+   "id": "en-07",
+   "lang": "en",
+   "type": "single",
+   "answerable": true,
+   "question": "At what oven temperature is the sourdough loaf baked?",
+   "facts": [
+    [
+     "230"
+    ]
+   ],
+   "documents": [
+    "sourdough.txt"
+   ]
+  },
+  {
+   "id": "en-08",
+   "lang": "en",
+   "type": "cross-doc",
+   "answerable": true,
+   "question": "What does the Pro plan cost per month in the 2026 price list?",
+   "facts": [
+    [
+     "25"
+    ]
+   ],
+   "documents": [
+    "pricing-2026.txt"
+   ]
+  },
+  {
+   "id": "en-09",
+   "lang": "en",
+   "type": "multi",
+   "answerable": true,
+   "question": "What is the approved budget of Project Falcon and when is the first release planned?",
+   "facts": [
+    [
+     "250000",
+     "250,000"
+    ],
+    [
+     "15 september",
+     "september 15"
+    ]
+   ],
+   "documents": [
+    "project-report.md"
+   ]
+  },
+  {
+   "id": "en-10",
+   "lang": "en",
+   "type": "reformulation",
+   "answerable": true,
+   "question": "Who runs the Falcon portal project day to day?",
+   "facts": [
+    [
+     "Laura Chen"
+    ]
+   ],
+   "documents": [
+    "project-report.md"
+   ]
+  },
+  {
+   "id": "en-11",
+   "lang": "en",
+   "type": "code",
+   "answerable": true,
+   "question": "What is the warranty period for model KX-2291-B?",
+   "facts": [
+    [
+     "24 months",
+     "24"
+    ]
+   ],
+   "documents": [
+    "router-manual.txt"
+   ]
+  },
+  {
+   "id": "en-12",
+   "lang": "en",
+   "type": "multi",
+   "answerable": true,
+   "question": "Which side effect was reported most often in the trial, and by what percentage of patients?",
+   "facts": [
+    [
+     "headache"
+    ],
+    [
+     "12"
+    ]
+   ],
+   "documents": [
+    "trial-summary.txt"
+   ]
+  },
+  {
+   "id": "en-13",
+   "lang": "en",
+   "type": "cross-lingual",
+   "answerable": true,
+   "question": "Which form must be used to request leave according to the Arabic leave policy?",
+   "facts": [
+    [
+     "HR-9931"
+    ]
+   ],
+   "documents": [
+    "سياسة-الإجازات.txt"
+   ]
+  },
+  {
+   "id": "en-14",
+   "lang": "en",
+   "type": "cross-doc",
+   "answerable": true,
+   "question": "How much storage does the Pro plan include in the 2025 price list compared with 2026?",
+   "facts": [
+    [
+     "100"
+    ],
+    [
+     "200"
+    ]
+   ],
+   "documents": [
+    "pricing-2025.txt",
+    "pricing-2026.txt"
+   ]
+  },
+  {
+   "id": "ar-01",
+   "lang": "ar",
+   "type": "single",
+   "answerable": true,
+   "question": "كم يوما من الإجازة السنوية يحصل عليها الموظف بدوام كامل؟",
+   "facts": [
+    [
+     "ثلاثين",
+     "30"
+    ]
+   ],
+   "documents": [
+    "سياسة-الإجازات.txt"
+   ]
+  },
+  {
+   "id": "ar-02",
+   "lang": "ar",
+   "type": "single",
+   "answerable": true,
+   "question": "ما مدة الضمان على جهاز تنقية المياه؟",
+   "facts": [
+    [
+     "ثلاث سنوات",
+     "3 سنوات",
+     "ثلاثة"
+    ]
+   ],
+   "documents": [
+    "دليل-الجهاز.txt"
+   ]
+  },
+  {
+   "id": "ar-03",
+   "lang": "ar",
+   "type": "code",
+   "answerable": true,
+   "question": "ماذا يعني الرمز E-7712 وماذا أفعل عند ظهوره؟",
+   "facts": [
+    [
+     "الفلتر الأول"
+    ],
+    [
+     "استبدل",
+     "تغيير",
+     "استبدال"
+    ]
+   ],
+   "documents": [
+    "دليل-الجهاز.txt"
+   ]
+  },
+  {
+   "id": "ar-04",
+   "lang": "ar",
+   "type": "multi",
+   "answerable": true,
+   "question": "ما هو النموذج المستخدم لطلب الإجازة، وقبل كم من الوقت يجب تقديمه؟",
+   "facts": [
+    [
+     "HR-9931"
+    ],
+    [
+     "أسبوعين"
+    ]
+   ],
+   "documents": [
+    "سياسة-الإجازات.txt"
+   ]
+  },
+  {
+   "id": "ar-05",
+   "lang": "ar",
+   "type": "multi",
+   "answerable": true,
+   "question": "كم بلغت إيرادات الشركة هذا العام، وفي أي مدينة افتتح الفرع الجديد؟",
+   "facts": [
+    [
+     "أربعة ملايين وخمسمائة",
+     "4.5",
+     "4,500,000",
+     "4500000"
+    ],
+    [
+     "الدمام"
+    ]
+   ],
+   "documents": [
+    "تقرير-مالي.txt"
+   ]
+  },
+  {
+   "id": "ar-06",
+   "lang": "ar",
+   "type": "code",
+   "answerable": true,
+   "question": "ما قيمة الفاتورة رقم 55012 ولصالح من صدرت؟",
+   "facts": [
+    [
+     "ثمانية عشر ألف",
+     "18000",
+     "18,000"
+    ],
+    [
+     "الواحة"
+    ]
+   ],
+   "documents": [
+    "تقرير-مالي.txt"
+   ]
+  },
+  {
+   "id": "ar-07",
+   "lang": "ar",
+   "type": "cross-lingual",
+   "answerable": true,
+   "question": "كم عدد المشاركين في الدراسة السريرية عن الصداع النصفي؟",
+   "facts": [
+    [
+     "312"
+    ]
+   ],
+   "documents": [
+    "trial-summary.txt"
+   ]
+  },
+  {
+   "id": "ar-08",
+   "lang": "ar",
+   "type": "single",
+   "answerable": true,
+   "question": "كم يوما يمكن ترحيلها من الإجازة السنوية إلى السنة التالية؟",
+   "facts": [
+    [
+     "خمسة عشر",
+     "15"
+    ]
+   ],
+   "documents": [
+    "سياسة-الإجازات.txt"
+   ]
+  },
+  {
+   "id": "ar-09",
+   "lang": "ar",
+   "type": "single",
+   "answerable": true,
+   "question": "كم الإيجار الشهري في عقد الإيجار لسنة 2025؟",
+   "facts": [
+    [
+     "1800"
+    ]
+   ],
+   "documents": [
+    "عقد-إيجار-2025.txt"
+   ]
+  },
+  {
+   "id": "ar-10",
+   "lang": "ar",
+   "type": "multi",
+   "answerable": true,
+   "question": "ما مدة عقد الإيجار لسنة 2025 وما مبلغ التأمين فيه؟",
+   "facts": [
+    [
+     "سنتان",
+     "سنتين",
+     "سنتان"
+    ],
+    [
+     "6000"
+    ]
+   ],
+   "documents": [
+    "عقد-إيجار-2025.txt"
+   ]
+  },
+  {
+   "id": "ar-11",
+   "lang": "ar",
+   "type": "multi",
+   "answerable": true,
+   "question": "متى يجب تغيير فلتر الكربون ومتى يجب تغيير الغشاء؟",
+   "facts": [
+    [
+     "ستة أشهر",
+     "6 أشهر"
+    ],
+    [
+     "سنتين",
+     "سنتان"
+    ]
+   ],
+   "documents": [
+    "دليل-الجهاز.txt"
+   ]
+  },
+  {
+   "id": "ar-12",
+   "lang": "ar",
+   "type": "cross-doc",
+   "answerable": true,
+   "question": "ما مدة الضمان على جهاز تنقية المياه، وكم يوما من الإجازة السنوية يحصل عليها الموظف؟",
+   "facts": [
+    [
+     "ثلاث سنوات",
+     "3 سنوات"
+    ],
+    [
+     "ثلاثين",
+     "30"
+    ]
+   ],
+   "documents": [
+    "دليل-الجهاز.txt",
+    "سياسة-الإجازات.txt"
+   ]
+  },
+  {
+   "id": "ar-13",
+   "lang": "ar",
+   "type": "cross-doc",
+   "answerable": true,
+   "question": "من يتحمل فاتورة الماء في عقد الإيجار لسنة 2024 ومن يتحملها في عقد 2025؟",
+   "facts": [
+    [
+     "المستأجر"
+    ],
+    [
+     "المالك"
+    ]
+   ],
+   "documents": [
+    "عقد-إيجار-2024.txt",
+    "عقد-إيجار-2025.txt"
+   ]
+  },
+  {
+   "id": "sum-en-01",
+   "lang": "en",
+   "type": "summarize",
+   "answerable": true,
+   "document": "trial-summary.txt",
+   "focus": null,
+   "facts": [
+    [
+     "migraine"
+    ],
+    [
+     "placebo"
+    ],
+    [
+     "headache"
+    ]
+   ],
+   "documents": [
+    "trial-summary.txt"
+   ]
+  },
+  {
+   "id": "sum-en-02",
+   "lang": "en",
+   "type": "summarize",
+   "answerable": true,
+   "document": "project-report.md",
+   "focus": "schedule and risks",
+   "facts": [
+    [
+     "15 september",
+     "september 15"
+    ],
+    [
+     "supplier"
+    ]
+   ],
+   "documents": [
+    "project-report.md"
+   ]
+  },
+  {
+   "id": "sum-ar-01",
+   "lang": "ar",
+   "type": "summarize",
+   "answerable": true,
+   "document": "تقرير-مالي.txt",
+   "focus": null,
+   "facts": [
+    [
+     "ايرادات",
+     "إيرادات"
+    ],
+    [
+     "الدمام"
+    ]
+   ],
+   "documents": [
+    "تقرير-مالي.txt"
+   ]
+  },
+  {
+   "id": "cmp-en-01",
+   "lang": "en",
+   "type": "compare",
+   "answerable": true,
+   "documentA": "pricing-2025.txt",
+   "documentB": "pricing-2026.txt",
+   "focus": null,
+   "facts": [
+    [
+     "20"
+    ],
+    [
+     "25"
+    ],
+    [
+     "Team"
+    ]
+   ],
+   "documents": [
+    "pricing-2025.txt",
+    "pricing-2026.txt"
+   ]
+  },
+  {
+   "id": "cmp-ar-01",
+   "lang": "ar",
+   "type": "compare",
+   "answerable": true,
+   "documentA": "عقد-إيجار-2024.txt",
+   "documentB": "عقد-إيجار-2025.txt",
+   "focus": null,
+   "facts": [
+    [
+     "1500"
+    ],
+    [
+     "1800"
+    ],
+    [
+     "6000"
+    ]
+   ],
+   "documents": [
+    "عقد-إيجار-2024.txt",
+    "عقد-إيجار-2025.txt"
+   ]
+  },
+  {
+   "id": "un-en-01",
+   "lang": "en",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "What is the maximum amount of sick leave an employee can take per year?"
+  },
+  {
+   "id": "un-en-02",
+   "lang": "en",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "Who won the 2018 football World Cup?"
+  },
+  {
+   "id": "un-en-03",
+   "lang": "en",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "What is the salary of the project manager of Project Falcon?"
+  },
+  {
+   "id": "un-en-04",
+   "lang": "en",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "How long does the battery of the router last?"
+  },
+  {
+   "id": "un-ar-01",
+   "lang": "ar",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "من هو مخترع الهاتف؟"
+  },
+  {
+   "id": "un-ar-02",
+   "lang": "ar",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "كم عدد موظفي الشركة في الرياض؟"
+  },
+  {
+   "id": "un-ar-03",
+   "lang": "ar",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "ما هي غرامة التأخر في دفع الإيجار الشهري؟"
+  },
+  {
+   "id": "un-ar-04",
+   "lang": "ar",
+   "type": "unanswerable",
+   "answerable": false,
+   "question": "ما لون جهاز تنقية المياه؟"
+  }
+ ]
+}

@@ -74,6 +74,7 @@ Explicitly excluded:
 | D29 | If a confirmation or reset email fails to send, the request still succeeds; the failure is logged (without content) and the user can request the email again. |
 | D30 | The ONNX embedding model is downloaded at build time by a script (pinned revision, SHA-256 verified) into a git-ignored folder locally and into the Docker image; it is not committed to git and not downloaded at runtime. |
 | D31 | Arabic text extraction from PDFs is **best effort**: many PDFs store Arabic in reversed (visual) order and the API repairs it heuristically. When a PDF needed this repair, the document carries a notice saying Arabic text may be inaccurate. Arabic DOCX, TXT and MD are fully supported. |
+| D32 | Phase 4 acceptance: on the English + Arabic evaluation set run against `gemma4:12b`, at least 80% of answerable questions are answered correctly with a correct citation, and every unanswerable question is answered as not found (no invented answers). |
 
 ---
 

@@ -1,0 +1,11 @@
+Consulting agreement between Birchwood Analytics and the client. This agreement sets out the services, fees and responsibilities of both parties for the duration of the project.
+
+The client shall pay each invoice within 45 days of receipt. Payments made after the due date are subject to a late fee of 1.5 percent per month on the outstanding balance until the invoice is settled.
+
+Either party may terminate this agreement by giving 90 days written notice to the other party. Work completed up to the termination date must still be paid in full by the client.
+
+This agreement is governed by the laws of the Province of Ontario, Canada. Any dispute that cannot be settled by negotiation shall be submitted to the courts of Toronto.
+
+Invoice INV-2026-0417 covers the data migration workshop delivered in April and amounts to 12,400 Canadian dollars excluding tax. It was issued to the client on the first of May.
+
+All reports and software produced during the project remain the property of the client once paid, except for pre-existing tools of the consultant, which are licensed under a separate agreement.

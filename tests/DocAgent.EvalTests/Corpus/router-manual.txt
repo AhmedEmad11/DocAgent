@@ -1,0 +1,11 @@
+NetStream router user manual. This manual explains how to install, configure and troubleshoot your wireless router at home or in a small office.
+
+If the display shows ERR-5043 the firmware checksum does not match. Hold the reset button for ten seconds until the power light flashes, then upload the firmware file again from the support website.
+
+A slowly blinking amber light means that the router has power but cannot reach the internet provider. Check the cable between the router and the wall socket and restart the modem before calling support.
+
+Firmware version 3.8.2 was released in March and improves the stability of the guest network. To update, open the administration page, choose System, then Firmware, and select the downloaded file.
+
+The administration page is available at 192.168.7.1 using any web browser. The default user name is admin; change the password during the first login to protect the network from strangers.
+
+The model KX-2291-B is covered by a limited warranty of 24 months from the date of purchase. The warranty does not cover damage caused by lightning, flooding or unauthorized repairs.

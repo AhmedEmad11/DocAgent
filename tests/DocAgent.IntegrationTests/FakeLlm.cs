@@ -67,13 +67,18 @@ public sealed class FakeLlmClientFactory(FakeChatClient client) : ILlmClientFact
 {
     public const string ModelName = "fake-model";
 
+    /// <summary>Agent limits the fake route carries; null = the development defaults.</summary>
+    public AgentLimits? Limits { get; set; }
+
     public ValueTask<LlmRoute> GetRouteAsync(CancellationToken ct = default) =>
-        ValueTask.FromResult(new LlmRoute(client, new LlmRouteInfo("development", "Ollama", ModelName)));
+        ValueTask.FromResult(new LlmRoute(client, new LlmRouteInfo("development", "Ollama", ModelName), null, Limits));
 
     /// <summary>For <c>DocAgentApiFactory</c>'s configureServices hook.</summary>
-    public static Action<IServiceCollection> Register(FakeChatClient client) => services =>
+    public static Action<IServiceCollection> Register(FakeChatClient client) => Register(new FakeLlmClientFactory(client));
+
+    public static Action<IServiceCollection> Register(FakeLlmClientFactory factory) => services =>
     {
         services.RemoveAll<ILlmClientFactory>();
-        services.AddSingleton<ILlmClientFactory>(new FakeLlmClientFactory(client));
+        services.AddSingleton<ILlmClientFactory>(factory);
     };
 }

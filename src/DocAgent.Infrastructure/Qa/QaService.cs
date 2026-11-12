@@ -12,7 +12,12 @@ namespace DocAgent.Infrastructure.Qa;
 
 public sealed record QaCitation(int Index, Guid DocumentId, string FileName, int? PageNumber, string? Section, string Quote);
 
-public sealed record QaAnswer(string Answer, bool NotFound, IReadOnlyList<QaCitation> Citations, LlmRouteInfo Route);
+/// <param name="Incomplete">A cap (tool calls, context or time) was reached; the answer may be incomplete (SRS QA-11).</param>
+/// <param name="ToolCalls">Tool calls the agent made (0 in single-pass mode).</param>
+/// <param name="Notices">Extraction notices (DOC-11) of the documents the answer relies on.</param>
+public sealed record QaAnswer(
+    string Answer, bool NotFound, IReadOnlyList<QaCitation> Citations, LlmRouteInfo Route,
+    bool Incomplete = false, int ToolCalls = 0, IReadOnlyList<string>? Notices = null);
 
 /// <summary>The language model could not be reached (connection refused, DNS, model missing, ...).</summary>
 public sealed class LlmUnavailableException(string message, Exception inner) : Exception(message, inner);
@@ -111,7 +116,7 @@ public sealed class QaService(
         return new QaAnswer(parsed.Answer, reply.NotFound, citations, route.Info);
     }
 
-    private static QaCitation ToCitation(int index, RetrievedChunk source, string question, string answer, int maxChars)
+    public static QaCitation ToCitation(int index, RetrievedChunk source, string question, string answer, int maxChars)
     {
         // The sentence of the answer that carries the marker tells which part of the source matters.
         var sentence = answer.Split(['.', '!', '?', '\n', '؟']).FirstOrDefault(s => s.Contains($"[{index}") || s.Contains($", {index}")) ?? "";
@@ -151,7 +156,7 @@ public sealed class QaService(
     internal static string NotFoundMessage(string question) =>
         question.Any(c => c is >= '؀' and <= 'ۿ') ? NotFoundMessageArabic : NotFoundMessageEnglish;
 
-    private static bool IsConnectionFailure(Exception ex) =>
+    internal static bool IsConnectionFailure(Exception ex) =>
         ex is HttpRequestException or System.Net.Sockets.SocketException or OllamaSharp.Models.Exceptions.OllamaException
         || ex.InnerException is HttpRequestException or System.Net.Sockets.SocketException;
 }

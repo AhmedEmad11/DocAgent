@@ -1,3 +1,4 @@
+using DocAgent.Infrastructure.Agents;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,7 +14,7 @@ public sealed class OllamaChatClientFactory : ILlmClientFactory, IDisposable
     private readonly HttpClient _http;
     private readonly LlmRoute _route;
 
-    public OllamaChatClientFactory(IOptions<LlmOptions> options, ILoggerFactory loggerFactory)
+    public OllamaChatClientFactory(IOptions<LlmOptions> options, ILoggerFactory loggerFactory, IOptions<AgentOptions>? agentOptions = null)
     {
         var ollama = options.Value.Ollama;
         // A plain HttpClient on purpose: the shared HTTP resilience handler has short attempt timeouts that suit
@@ -30,7 +31,9 @@ public sealed class OllamaChatClientFactory : ILlmClientFactory, IDisposable
                     Think = ollama.Think,
                     Options = new RequestOptions { NumCtx = ollama.NumCtx },
                 },
-            });
+            },
+            // Until demo/BYOK routes exist (Phases 5-6) the development route uses the BYOK limits (stakeholder decision).
+            (agentOptions?.Value ?? new AgentOptions()).Limits.Development.ToLimits());
     }
 
     public ValueTask<LlmRoute> GetRouteAsync(CancellationToken ct = default) => ValueTask.FromResult(_route);

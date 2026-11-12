@@ -1,0 +1,9 @@
+Clinical study summary. This document summarises the design, participants and main findings of a randomised trial of a new medication for chronic migraine.
+
+The principal investigator of the study was Dr. Halvorsen of the university hospital. The study was registered under the identifier NCT-0048213 and enrolled 312 participants across six centres.
+
+Participants received a dose of 40 mg twice daily for twelve weeks. The control group received a placebo tablet that looked identical, and neither patients nor doctors knew who received which tablet.
+
+The most frequent side effect was headache, reported by 12 percent of patients in the treatment group. Nausea and dizziness were less common, and no serious adverse events were attributed to the drug.
+
+The monthly number of migraine days fell by an average of 4.2 days in the treatment group, compared with 1.9 days in the placebo group, a difference that was statistically significant.
