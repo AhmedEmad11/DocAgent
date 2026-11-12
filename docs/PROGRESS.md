@@ -5,14 +5,14 @@ Updated after every change. Newest entries at the top.
 ## Current status
 | Item | Value |
 |---|---|
-| Current phase | Phase 0: Environment and skeleton (in progress) |
-| Next step | Confirm CI passes on GitHub, then close Phase 0 and start Phase 1 |
-| Blockers | None |
+| Current phase | Phase 0 complete; Phase 1 not started |
+| Next step | Phase 1 (data layer and authentication). Needs from stakeholder first: Gmail app password, Google and GitHub OAuth app credentials |
+| Blockers | Waiting for Phase 1 credentials |
 
 ## Phase checklist
 - [x] SRS approved (v0.2, 2026-11-12)
 - [x] Development plan approved (v0.2, 2026-11-12)
-- [ ] Phase 0: Environment and skeleton
+- [x] Phase 0: Environment and skeleton (2026-11-12)
 - [ ] Phase 1: Data layer and authentication
 - [ ] Phase 2: Document ingestion
 - [ ] Phase 3: Retrieval and basic Q&A
@@ -24,6 +24,12 @@ Updated after every change. Newest entries at the top.
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-12: Phase 0 complete
+- Repository: https://github.com/AhmedEmad11/DocAgent (public).
+- First CI run (#43248164689): **success**; 4/4 integration tests passed on `ubuntu-latest`. The "Failed to connect to 127.0.0.1:1" log lines come from the test that checks the unhealthy case on purpose.
+- CI warnings (not failures): `actions/checkout@v4` and `actions/setup-dotnet@v4` target the deprecated Node.js 20 runtime; `ubuntu-latest` is moving to Ubuntu 26. Not changed; waiting for a stakeholder decision.
+- All Phase 0 "done when" conditions met: the AppHost starts the API and Postgres, `/health/ready` is healthy, and CI passes.
 
 ### 2026-11-12: Phase 0 verified locally; pushed to GitHub
 - Stakeholder fixed Docker (engine now at `unix:///var/run/docker.sock`).
