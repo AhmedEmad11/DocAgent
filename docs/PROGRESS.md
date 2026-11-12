@@ -6,7 +6,7 @@ Updated after every change. Newest entries at the top.
 | Item | Value |
 |---|---|
 | Current phase | Phase 0 complete; Phase 1 not started |
-| Next step | Phase 1 (data layer and authentication). Needs from stakeholder first: Gmail app password, Google and GitHub OAuth app credentials |
+| Next step | Stakeholder sets credentials following [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md), then Phase 1 starts |
 | Blockers | Waiting for Phase 1 credentials |
 
 ## Phase checklist
@@ -24,6 +24,12 @@ Updated after every change. Newest entries at the top.
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-12: CI actions upgraded, graphify-out ignored, credential setup guide
+- CI: `actions/checkout@v4` → `@v7` (v7.0.1, 2026-07-20) and `actions/setup-dotnet@v4` → `@v6` (v6.1.0, 2026-11-03); both run on Node.js 24, which removes the Node 20 deprecation warning.
+- `.gitignore`: added `graphify-out/` (local knowledge-graph output).
+- API project: `dotnet user-secrets init` (adds `UserSecretsId` to `DocAgent.Api.csproj`).
+- Added [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md): steps for the Gmail app password, Google OAuth client and GitHub OAuth app. It fixes the configuration key names Phase 1 will read: `Email:Smtp:Username`, `Email:Smtp:Password`, `Email:FromAddress`, `Authentication:Google:ClientId/ClientSecret`, `Authentication:GitHub:ClientId/ClientSecret`. Dev callback URLs: `/signin-google` (http 5248 and https 7090), `/signin-github` (http 5248).
 
 ### 2026-11-12: Phase 0 complete
 - Repository: https://github.com/AhmedEmad11/DocAgent (public).
