@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DocAgent.Api/DocAgent.Api.csproj" />
+    <Project Path="src/DocAgent.AppHost/DocAgent.AppHost.csproj" />
+    <Project Path="src/DocAgent.Core/DocAgent.Core.csproj" />
+    <Project Path="src/DocAgent.Infrastructure/DocAgent.Infrastructure.csproj" />
+    <Project Path="src/DocAgent.ServiceDefaults/DocAgent.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DocAgent.IntegrationTests/DocAgent.IntegrationTests.csproj" />
+    <Project Path="tests/DocAgent.UnitTests/DocAgent.UnitTests.csproj" />
+  </Folder>
+</Solution>

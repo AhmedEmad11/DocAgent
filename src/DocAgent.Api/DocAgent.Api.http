@@ -1,0 +1,10 @@
+@DocAgent.Api_HostAddress = http://localhost:5248
+
+### Liveness
+GET {{DocAgent.Api_HostAddress}}/health/live
+
+### Readiness (includes the database)
+GET {{DocAgent.Api_HostAddress}}/health/ready
+
+### OpenAPI document (Development only)
+GET {{DocAgent.Api_HostAddress}}/openapi/v1.json
