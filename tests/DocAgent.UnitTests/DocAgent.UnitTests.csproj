@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\DocAgent.Core\DocAgent.Core.csproj" />
     <ProjectReference Include="..\..\src\DocAgent.Infrastructure\DocAgent.Infrastructure.csproj" />
   </ItemGroup>

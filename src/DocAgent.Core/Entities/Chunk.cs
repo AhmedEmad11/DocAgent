@@ -4,7 +4,7 @@ namespace DocAgent.Core.Entities;
 
 public class Chunk
 {
-    /// <summary>Embedding dimensionality (all-MiniLM-L6-v2 class models; SRS decision).</summary>
+    /// <summary>Embedding dimensionality (multilingual-e5-small; SRS section 7).</summary>
     public const int EmbeddingDimensions = 384;
 
     public Guid Id { get; set; }

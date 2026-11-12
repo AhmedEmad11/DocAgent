@@ -18,7 +18,15 @@ public static class TestDatabase
             await cmd.ExecuteNonQueryAsync();
         }
 
-        return new NpgsqlConnectionStringBuilder(postgres.ConnectionString) { Database = name }.ConnectionString;
+        // Every test gets its own database, hence its own Npgsql pool; keep idle connections short-lived so
+        // hundreds of tests do not exhaust the container's max_connections.
+        return new NpgsqlConnectionStringBuilder(postgres.ConnectionString)
+        {
+            Database = name,
+            MaxPoolSize = 8,
+            ConnectionIdleLifetime = 2,
+            ConnectionPruningInterval = 1,
+        }.ConnectionString;
     }
 
     /// <summary>Creates a database and applies all migrations.</summary>

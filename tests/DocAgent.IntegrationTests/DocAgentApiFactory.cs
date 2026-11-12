@@ -13,7 +13,8 @@ namespace DocAgent.IntegrationTests;
 public sealed class DocAgentApiFactory(
     string connectionString,
     IDictionary<string, string?>? settings = null,
-    bool raiseRateLimit = true) : WebApplicationFactory<Program>
+    bool raiseRateLimit = true,
+    Action<IServiceCollection>? configureServices = null) : WebApplicationFactory<Program>
 {
     public const string AllowedReturnUrl = "http://localhost:3000";
 
@@ -38,6 +39,18 @@ public sealed class DocAgentApiFactory(
         builder.UseDefaultServiceProvider(o => o.ValidateScopes = true);
 
         builder.ConfigureServices(services =>
-            services.AddSingleton<IEmailSender<AppUser>>(Emails));
+        {
+            services.AddSingleton<IEmailSender<AppUser>>(Emails);
+            configureServices?.Invoke(services);
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing)
+        {
+            Npgsql.NpgsqlConnection.ClearAllPools(); // release this test's connections right away
+        }
     }
 }

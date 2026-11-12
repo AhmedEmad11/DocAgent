@@ -135,7 +135,8 @@ Each phase ends with: tests passing, PROGRESS.md updated, and a short review wit
 ### Phase 2: Document ingestion
 - Upload endpoint: content-type sniffing, size limits, per-user quotas (demo 3 docs / 5 MB; BYOK 100 docs / 25 MB).
 - Parsers: PdfPig (page-aware), OpenXml (heading-aware), Markdig/plain text. Detect scanned PDFs (DOC-8).
-- Chunker: about 500–800 tokens with overlap; keeps page/section metadata.
+- Chunker: target about 400 tokens, hard max 480, 60-token overlap (configurable), measured with the embedding model's own tokenizer. Reason: `multilingual-e5-small` reads at most 512 tokens including the `passage: ` prefix, so larger chunks would be silently truncated. Keeps page/section metadata.
+- Full document text for summarize/compare (SRS §6 DocumentText) is derived from the ordered chunks; no separate text table.
 - ONNX embedding generator (`multilingual-e5-small` int8) behind `IEmbeddingGenerator`, with the model's required `query:` / `passage:` prefixes. How the model files are shipped (in the image vs downloaded on first start) is a question for the stakeholder at the start of this phase.
 - Arabic test documents (PDF, docx, md): check right-to-left text extraction quality.
 - Background job worker with a Postgres job table; restart recovery (REL-3).

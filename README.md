@@ -7,12 +7,13 @@ A document Q&A API: users upload documents and ask questions about them. Answers
 - Progress log: [docs/PROGRESS.md](docs/PROGRESS.md)
 
 ## Status
-Phase 0 (project skeleton). See the progress log for details.
+Phase 2 (document ingestion) implemented, pending review. See the progress log for details.
 
 ## Prerequisites
 - .NET 10 SDK
 - Docker (running), used by Aspire for PostgreSQL and by the integration tests
 - Ollama with `gemma4:12b` (needed from Phase 3)
+- The embedding model files (about 120 MB), downloaded once with `scripts/download-models.sh` (see below)
 
 ## Solution layout
 | Project | Purpose |
@@ -24,6 +25,13 @@ Phase 0 (project skeleton). See the progress log for details.
 | `src/DocAgent.Infrastructure` | Database, parsers, embeddings, LLM providers |
 | `tests/DocAgent.UnitTests` | Unit tests |
 | `tests/DocAgent.IntegrationTests` | Integration tests against real PostgreSQL + pgvector (Testcontainers) |
+
+## Embedding model
+Document ingestion embeds text in-process with `multilingual-e5-small` (int8 ONNX, Hugging Face `Xenova/multilingual-e5-small`, pinned commit). The files are **not** in git (SRS D30). Download them before running the API or the tests:
+```bash
+scripts/download-models.sh
+```
+The script verifies SHA-256 hashes, is safe to re-run, and writes to `models/multilingual-e5-small/` (git-ignored). The API finds that folder from `Embeddings:ModelPath` (relative paths are searched upwards from the content root and the app folder, so `dotnet run`, the tests and a container all work). CI runs the same script and caches `models/`. Tests that need the model fail with a message telling you to run the script when it is missing.
 
 ## Run locally
 ```bash

@@ -5,7 +5,7 @@ Updated after every change. Newest entries at the top.
 ## Current status
 | Item | Value |
 |---|---|
-| Current phase | Phase 2: Document ingestion (starting) |
+| Current phase | Phase 2 implemented and reviewed; Phase 3 next |
 | Next step | Implement Phase 1, review, stakeholder checkpoint |
 | Blockers | None |
 
@@ -14,7 +14,7 @@ Updated after every change. Newest entries at the top.
 - [x] Development plan approved (v0.2, 2026-11-12)
 - [x] Phase 0: Environment and skeleton (2026-11-12)
 - [x] Phase 1: Data layer and authentication (2026-11-12)
-- [ ] Phase 2: Document ingestion
+- [x] Phase 2: Document ingestion (2026-11-12; Arabic PDF quality decision pending)
 - [ ] Phase 3: Retrieval and basic Q&A
 - [ ] Phase 4: Agent workflows
 - [ ] Phase 5: BYOK providers and key management
@@ -24,6 +24,38 @@ Updated after every change. Newest entries at the top.
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-12: Phase 2 reviewed and committed
+- CI for the Phase 1 commit `417984c` (run 43270361696): success, 30/30 unit + 47/47 integration.
+- Independent re-run of Phase 2: build 0 errors / 0 warnings; **198 tests passed** (111 unit, 87 integration).
+- Reviewed document endpoints (tenant filtering, 404 for other users' ids, per-request body-size limit, content sniffing, per-user advisory lock for the count limit), fixture sizes (Noto Naskh Arabic font 244 KB, SIL OFL; Arabic Chromium PDF 24 KB). No blocking issues.
+- Open stakeholder decision: Arabic PDF extraction is heuristic (works on Chromium-generated PDFs; untested on Word/LibreOffice/Adobe output, multi-column layouts; combined diacritics dropped).
+
+### 2026-11-12: Phase 2 implemented (pending review)
+**Packages (Infrastructure):** Microsoft.ML.OnnxRuntime 1.31.1, Microsoft.ML.Tokenizers 3.0.0, Microsoft.Extensions.AI.Abstractions 10.11.0, PdfPig 0.1.16 (NuGet id `PdfPig`, namespace `UglyToad.PdfPig`; the `UglyToad.PdfPig` id has no stable release), DocumentFormat.OpenXml 3.5.1, Markdig 1.6.0.
+
+**Model (D30):** Hugging Face `Xenova/multilingual-e5-small` at commit `761b726dd34fb83930e26aab4e9ac3899aa1fa78`: `onnx/model_quantized.onnx` (118 MB, dynamic int8), `sentencepiece.bpe.model`, `tokenizer.json`. Chosen over `intfloat/multilingual-e5-small`'s `model_qint8_avx512_vnni.onnx`, which is tied to AVX512-VNNI CPUs. `scripts/download-models.sh` downloads into git-ignored `models/multilingual-e5-small/`, verifies SHA-256 (hashes hard-coded), idempotent. CI runs it with `actions/cache@v6` (Node 24) keyed on the script hash. Output `last_hidden_state` [batch, seq, 384] inspected; mean pooling + L2 normalize done in code. Token ids match the reference `tokenizers` library for 5 sample strings (unit test).
+
+**Endpoints:** `POST /api/v1/documents` (202 + Location, 413/415/400/409), `GET /api/v1/documents`, `GET /api/v1/documents/{id}`, `DELETE /api/v1/documents/{id}`; all `EmailConfirmed`, tenant-filtered, 404 for other users' ids.
+
+**Code:** `src/DocAgent.Infrastructure/Embeddings` (tokenizer, ONNX generator, path resolver), `.../Ingestion` (sniffer, file name sanitizer, PDF/DOCX/MD/TXT extractors, `ArabicTextFixer`, `TextChunker`, `IngestionJobQueue`, `IngestionProcessor`, `IngestionWorker`, DI extension), `src/DocAgent.Api/Documents/DocumentEndpoints.cs`.
+
+**Migration:** `AddDocumentUpload` (staging table `DocumentUploads`: DocumentId PK/FK cascade, `Content bytea`; rows are deleted when a document becomes Ready or Failed).
+
+**Tests:** 198 passing (111 unit, 87 integration; before: 77). New: tokenizer ids, embedding similarity (EN pair 0.848 vs 0.781 unrelated; EN query vs Arabic passage 0.859 vs 0.729 unrelated), sniffer, file names, chunker, extractors, Arabic PDF (Chromium fixture + PdfPig-built), end-to-end upload of PDF/DOCX/TXT/MD in English and Arabic, scanned PDF, 415/400/413/409, demo/BYOK limits, parallel-upload limit race, tenant isolation, unconfirmed user 403, staging deletion, crash recovery, retry/backoff. Build: 0 warnings. Integration test helper change: per-test databases now use short-lived small Npgsql pools and the factory clears pools on dispose (the ingestion worker kept connections open and exhausted Postgres `max_connections` across ~85 per-test databases).
+
+**AppHost verification:** ran the AppHost (http profile), registered and confirmed a user through Mailpit's API, uploaded an English PDF (made by Chromium) and an Arabic `.md`; both reached `Ready` (1 and 2 chunks); upload returned in 0.04 s; a 6 MB file from a demo user got 413 and an `.exe` got 415 over real Kestrel. AppHost stopped afterwards.
+
+**Arabic PDF extraction quality (D13, OI-5):**
+- PdfPig returns Arabic as stored in the PDF. A Chromium-made PDF (typical of real PDFs: shaped glyphs in visual order, presentation forms U+FExx) came out reversed and in presentation forms. `ArabicTextFixer` decides per page (letter statistics: definite article "al-", teh marbuta/alef maqsura position; falls back to presentation-form share) whether the text is reversed, then reverses each line, restores the order of Latin words and numbers, mirrors brackets, and maps presentation forms (incl. lam-alef) to standard letters.
+- Result on the Chromium fixture: headline, wrapped paragraphs, a mixed Arabic/English/number line and bracketed text come back in correct logical order; an English page with one Arabic word is unchanged; PDFs written in logical order are left alone. This was better than `pdftotext` on the same file (it garbled the lam-alef ligature).
+- Limits (heuristic, not a full bidi implementation): only tested with PDFs from Chromium and PdfPig; Word, LibreOffice, Adobe or older Arabic PDFs are untested and could behave differently (for example partly reversed or non-standard font encodings). Combined diacritic glyphs (shadda + fatha) come out as NUL in PdfPig and are dropped, so heavily vowelled text loses marks. Very short Arabic pages carry little statistical evidence. Multi-column Arabic layouts were not tested. Scanned Arabic PDFs fail like any scanned PDF (no OCR). **Stakeholder decision point:** whether this quality is enough for v1 or a sample set of real Arabic PDFs should be supplied for testing.
+
+**Deviations / choices not in the brief:** see the final report of the implementing agent (chunks never cross a page or heading boundary; 409 for the document-count limit; worker recovery fails jobs that already used 3 attempts; extra limits MaxPdfPages 2000 and docx entry cap 2000; TXT/MD must be UTF-8).
+
+### 2026-11-12: Phase 2 started
+- Plan updated: chunk size changed from "500–800 tokens" to target ~400 / max 480 / overlap 60 tokens, because `multilingual-e5-small` truncates input beyond 512 tokens. Document full text for summarize/compare will be derived from ordered chunks (resolves SRS §6 DocumentText design detail).
+- Phase 2 implementation delegated to a Sonnet subagent; CI check of the Phase 1 commit delegated to a Haiku subagent.
 
 ### 2026-11-12: Phase 1 checkpoint passed
 - Stakeholder verified real Google and GitHub sign-in end to end via `https://localhost:7090/dev/external-login-test` (after updating the GitHub OAuth app callback to `https://localhost:7090/signin-github`).

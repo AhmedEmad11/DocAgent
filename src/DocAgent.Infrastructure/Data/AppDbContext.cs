@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<Chunk> Chunks => Set<Chunk>();
     public DbSet<IngestionJob> IngestionJobs => Set<IngestionJob>();
+    public DbSet<DocumentUpload> DocumentUploads => Set<DocumentUpload>();
     public DbSet<UserLlmCredential> UserLlmCredentials => Set<UserLlmCredential>();
     public DbSet<ExternalLoginCode> ExternalLoginCodes => Set<ExternalLoginCode>();
 
@@ -57,6 +58,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
             e.HasIndex(x => x.UserId);
             e.HasIndex(x => x.DocumentId);
             e.HasQueryFilter(x => x.UserId == CurrentUserId);
+        });
+
+        // Staging bytes (SRS D15). No query filter on purpose: it has no UserId and is only accessed by the
+        // ingestion worker, always by DocumentId. Request paths never query it.
+        modelBuilder.Entity<DocumentUpload>(e =>
+        {
+            e.HasKey(x => x.DocumentId);
+            e.HasOne<Document>().WithOne().HasForeignKey<DocumentUpload>(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<UserLlmCredential>(e =>

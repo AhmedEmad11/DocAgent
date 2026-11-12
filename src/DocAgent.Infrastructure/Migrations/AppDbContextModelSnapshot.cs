@@ -186,6 +186,20 @@ namespace DocAgent.Infrastructure.Migrations
                     b.ToTable("Documents");
                 });
 
+            modelBuilder.Entity("DocAgent.Core.Entities.DocumentUpload", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("DocumentId");
+
+                    b.ToTable("DocumentUploads");
+                });
+
             modelBuilder.Entity("DocAgent.Core.Entities.ExternalLoginCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -433,6 +447,15 @@ namespace DocAgent.Infrastructure.Migrations
                     b.HasOne("DocAgent.Core.Entities.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DocAgent.Core.Entities.DocumentUpload", b =>
+                {
+                    b.HasOne("DocAgent.Core.Entities.Document", null)
+                        .WithOne()
+                        .HasForeignKey("DocAgent.Core.Entities.DocumentUpload", "DocumentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

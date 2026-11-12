@@ -19,6 +19,16 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      # Embedding model (SRS D30): pinned revision + SHA-256 verified by the script; cached on the script's hash.
+      - name: Cache embedding model
+        uses: actions/cache@v6
+        with:
+          path: models
+          key: models-${{ hashFiles('scripts/download-models.sh') }}
+
+      - name: Download embedding model
+        run: scripts/download-models.sh
+
       - name: Restore
         run: dotnet restore DocAgent.slnx
 

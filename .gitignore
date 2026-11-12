@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # graphify knowledge graph output (generated locally)
 graphify-out/
+
+# Embedding model files (downloaded by scripts/download-models.sh)
+/models/
