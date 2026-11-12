@@ -1,9 +1,11 @@
 using System.Text.Json;
 using System.Threading.Channels;
 using DocAgent.Api.Auth;
+using DocAgent.Api.Llm;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Agents;
 using DocAgent.Infrastructure.Data;
+using DocAgent.Infrastructure.Llm;
 using DocAgent.Infrastructure.Qa;
 using Microsoft.EntityFrameworkCore;
 
@@ -52,6 +54,10 @@ public static class AskEndpoints
         {
             return Results.Ok(AskResponse.From(await ask.AskAsync(question!, requested, ct)));
         }
+        catch (LlmAccessException ex)
+        {
+            return LlmProblems.ToResult(ex);
+        }
         catch (LlmUnavailableException ex)
         {
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable, title: "Language model unavailable");
@@ -68,12 +74,21 @@ public static class AskEndpoints
     /// <c>answer</c> (data: the /ask JSON) or <c>error</c> (data: status and title). The answer itself arrives whole, after verification.
     /// </summary>
     private static async Task<IResult> AskStreamAsync(
-        AskRequest request, HttpContext http, AppDbContext db, AskService ask, CancellationToken ct)
+        AskRequest request, HttpContext http, AppDbContext db, AskService ask, ILlmClientFactory llm, CancellationToken ct)
     {
         var (question, requested, error) = await ValidateAsync(request, db, ct);
         if (error is not null)
         {
             return error;
+        }
+
+        try
+        {
+            await llm.GetRouteAsync(ct); // the route is cached for this request; a missing or unreadable key is a normal 4xx, not a stream error
+        }
+        catch (LlmAccessException ex)
+        {
+            return LlmProblems.ToResult(ex);
         }
 
         http.Response.StatusCode = StatusCodes.Status200OK;
@@ -89,6 +104,11 @@ public static class AskEndpoints
                 var result = await ask.AskAsync(question!, requested, ct, e =>
                     events.Writer.TryWrite((e.Type, e.Tool is null ? "{}" : JsonSerializer.Serialize(new { tool = e.Tool }))));
                 events.Writer.TryWrite(("answer", JsonSerializer.Serialize(AskResponse.From(result), JsonSerializerOptions.Web)));
+            }
+            catch (LlmAccessException ex)
+            {
+                var m = LlmProblems.Map(ex, onSave: false);
+                events.Writer.TryWrite(("error", JsonSerializer.Serialize(new { status = m.Status, title = m.Title, code = m.Code, retryAfter = m.RetryAfter is { } r ? (int?)Math.Ceiling(r.TotalSeconds) : null })));
             }
             catch (LlmUnavailableException)
             {

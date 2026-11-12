@@ -8,8 +8,8 @@ using OllamaSharp.Models.Chat;
 
 namespace DocAgent.Infrastructure.Llm;
 
-/// <summary>Development route: a local Ollama server through OllamaSharp's <see cref="IChatClient"/>.</summary>
-public sealed class OllamaChatClientFactory : ILlmClientFactory, IDisposable
+/// <summary>Development route: a local Ollama server through OllamaSharp's <see cref="IChatClient"/>. Used as the no-key route in Development/Testing (<see cref="OllamaNoKeyRouteProvider"/>).</summary>
+public sealed class OllamaChatClientFactory : IDisposable
 {
     private readonly HttpClient _http;
     private readonly LlmRoute _route;
@@ -32,7 +32,7 @@ public sealed class OllamaChatClientFactory : ILlmClientFactory, IDisposable
                     Options = new RequestOptions { NumCtx = ollama.NumCtx },
                 },
             },
-            // Until demo/BYOK routes exist (Phases 5-6) the development route uses the BYOK limits (stakeholder decision).
+            // Development caps (Agent:Limits:Development).
             (agentOptions?.Value ?? new AgentOptions()).Limits.Development.ToLimits());
     }
 

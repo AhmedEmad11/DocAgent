@@ -85,7 +85,7 @@ public static class DocumentTestHelpers
         db.UserLlmCredentials.Add(new UserLlmCredential
         {
             UserId = userId, Provider = LlmProvider.OpenRouter, Model = "m", EncryptedKey = "enc",
-            KeyLast4 = "abcd", ValidatedAt = DateTimeOffset.UtcNow,
+            KeyLast4 = "abcd", CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
         });
         await db.SaveChangesAsync();
     }

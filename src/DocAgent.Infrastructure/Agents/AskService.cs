@@ -1,3 +1,4 @@
+using DocAgent.Infrastructure.Llm;
 using DocAgent.Infrastructure.Qa;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,7 +26,7 @@ public sealed class AskService(
         {
             return await agent.AskAsync(question, documentIds, progress, ct);
         }
-        catch (Exception ex) when (ex is not (OperationCanceledException or LlmUnavailableException or QaTimeoutException) && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is not (OperationCanceledException or LlmUnavailableException or QaTimeoutException) && LlmAccessException.Find(ex) is null && !ct.IsCancellationRequested)
         {
             logger.LogWarning("The agent run failed ({ExceptionType}); falling back to single-pass answering", ex.GetType().Name);
             return await singlePass.AskAsync(question, documentIds, ct);

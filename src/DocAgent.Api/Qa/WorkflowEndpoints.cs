@@ -1,4 +1,5 @@
 using DocAgent.Api.Auth;
+using DocAgent.Api.Llm;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Agents;
 using DocAgent.Infrastructure.Data;
@@ -87,7 +88,16 @@ public static class WorkflowEndpoints
         ILlmClientFactory llm, CancellationToken ct, Func<LlmRoute, TimeSpan, SourceRegistry, Task<WorkflowResult>> work,
         AppDbContext db, string focus, IReadOnlyList<Document> documents)
     {
-        var route = await llm.GetRouteAsync(ct);
+        LlmRoute route;
+        try
+        {
+            route = await llm.GetRouteAsync(ct);
+        }
+        catch (LlmAccessException ex)
+        {
+            return LlmProblems.ToResult(ex);
+        }
+
         var timeout = (route.Limits ?? new AgentLimitsOptions().ToLimits()).Timeout;
         var registry = new SourceRegistry();
         try
@@ -109,6 +119,10 @@ public static class WorkflowEndpoints
 
             return Results.Ok(AskEndpoints.AskResponse.From(
                 new QaAnswer(answer, false, citations, route.Info, result.Incomplete, 0, notices)));
+        }
+        catch (LlmAccessException ex)
+        {
+            return LlmProblems.ToResult(ex);
         }
         catch (LlmUnavailableException ex)
         {

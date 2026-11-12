@@ -14,7 +14,7 @@ public static class ChatClientPipeline
     /// </summary>
     public static IChatClient Wrap(IChatClient inner, ILoggerFactory loggerFactory) =>
         inner.AsBuilder()
-            .UseOpenTelemetry(loggerFactory, TelemetrySourceName)
+            .UseOpenTelemetry(loggerFactory, TelemetrySourceName, otel => otel.EnableSensitiveData = false) // explicit: also ignores the OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT env switch
             .UseLogging(loggerFactory)
             .Build();
 }

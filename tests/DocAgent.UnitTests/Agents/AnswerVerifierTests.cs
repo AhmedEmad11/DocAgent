@@ -96,7 +96,7 @@ public sealed class AnswerVerifierTests
     }
 
     [Fact]
-    public async Task Unusable_replies_are_retried_once_then_the_draft_is_kept_unchecked()
+    public async Task Unusable_replies_are_retried_once_then_the_answer_is_withheld_fail_closed()
     {
         var registry = Registry("Fact.");
         var garbage = new StubChatClient((_, _, _) => StubChatClient.Text("sure, looks fine"));
@@ -104,7 +104,8 @@ public sealed class AnswerVerifierTests
 
         Assert.Equal(2, garbage.Calls.Count);
         Assert.True(skipped.Skipped);
-        Assert.Equal("Fact [1].", skipped.Answer);
+        Assert.Null(skipped.Answer); // fail closed: no usable verdict, no answer
+        Assert.Equal((1, 1), (skipped.Claims, skipped.Removed));
 
         var flaky = new StubChatClient((n, _, _) => StubChatClient.Text(n == 0 ? "{" : """{"claims":[{"id":1,"supported":false,"source":0}]}"""));
         var second = await Verifier.VerifyAsync("Q?", "Fact [1].", registry, Route(flaky), default);

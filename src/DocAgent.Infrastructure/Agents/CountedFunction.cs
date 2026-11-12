@@ -38,7 +38,7 @@ internal sealed class CountedFunction(
             activity?.SetTag("tool.result_chars", (result as string)?.Length ?? 0);
             return result;
         }
-        catch (Exception ex) when (ex is not (OperationCanceledException or Qa.LlmUnavailableException or Qa.QaTimeoutException))
+        catch (Exception ex) when (ex is not (OperationCanceledException or Qa.LlmUnavailableException or Qa.QaTimeoutException) && Llm.LlmAccessException.Find(ex) is null)
         {
             // Argument binding errors and tool bugs: tell the model briefly, log the type only (the message may hold document text).
             activity?.SetTag("tool.error", ex.GetType().Name);

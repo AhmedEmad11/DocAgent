@@ -154,7 +154,7 @@ public sealed class AuthFlowTests(PostgresFixture postgres) : IAsyncLifetime
             db.UserLlmCredentials.Add(new UserLlmCredential
             {
                 UserId = userId, Provider = LlmProvider.Gemini, Model = "m", EncryptedKey = "e", KeyLast4 = "1234",
-                ValidatedAt = DateTimeOffset.UtcNow,
+                CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
             });
             db.ExternalLoginCodes.Add(new ExternalLoginCode
             {

@@ -97,6 +97,10 @@ public sealed class AgentQaService(
             response = await agent.RunAsync(
                 new ChatMessage(ChatRole.User, AgentPrompts.BuildUserMessage(question, documents)), session: null, options: null, ct);
         }
+        catch (Exception ex) when (LlmAccessException.Find(ex) is { } access && access != ex)
+        {
+            throw access; // a provider error raised inside a tool or wrapped by the function-invoking layer
+        }
         catch (Exception ex) when (QaService.IsConnectionFailure(ex) && !ct.IsCancellationRequested)
         {
             _logger.LogWarning("Agent: the language model is unavailable ({ExceptionType})", ex.GetType().Name);

@@ -80,3 +80,31 @@ Authorization: Bearer {{accessToken}}
 ### Delete my account and all my data (204)
 DELETE {{DocAgent.Api_HostAddress}}/api/v1/me
 Authorization: Bearer {{accessToken}}
+
+### ---- Your own LLM key (BYOK, Phase 5) ----
+# Providers: openrouter | anthropic | openai | gemini. The key is validated with one small call to the provider before it is saved,
+# stored encrypted, and never returned (only the last 4 characters). Replace the placeholders; never commit a real key.
+
+### List tool-capable models BEFORE saving: the key goes in a header (never in the URL)
+GET {{DocAgent.Api_HostAddress}}/api/v1/providers/openrouter/models
+Authorization: Bearer {{accessToken}}
+X-Llm-Api-Key: <your provider key>
+
+### Save or replace the key (400 llm_key_invalid / llm_model_unknown, 402 llm_no_credit, 429 llm_rate_limited, 503 llm_unavailable)
+PUT {{DocAgent.Api_HostAddress}}/api/v1/me/llm-key
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "provider": "openrouter", "model": "openai/gpt-4o-mini", "apiKey": "<your provider key>" }
+
+### Show the saved configuration (provider, model, last4, updatedAt) or 404
+GET {{DocAgent.Api_HostAddress}}/api/v1/me/llm-key
+Authorization: Bearer {{accessToken}}
+
+### Models for the provider of the saved key (no header needed)
+GET {{DocAgent.Api_HostAddress}}/api/v1/providers/openrouter/models
+Authorization: Bearer {{accessToken}}
+
+### Remove the key (204)
+DELETE {{DocAgent.Api_HostAddress}}/api/v1/me/llm-key
+Authorization: Bearer {{accessToken}}

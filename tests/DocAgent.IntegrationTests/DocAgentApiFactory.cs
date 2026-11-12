@@ -28,6 +28,7 @@ public sealed class DocAgentApiFactory(
         if (raiseRateLimit)
         {
             builder.UseSetting("RateLimiting:Auth:PermitLimit", "10000");
+            builder.UseSetting("RateLimiting:LlmKey:PermitLimit", "10000");
         }
 
         foreach (var (key, value) in settings ?? new Dictionary<string, string?>())

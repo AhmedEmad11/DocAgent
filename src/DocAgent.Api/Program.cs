@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using DocAgent.Api.Auth;
 using DocAgent.Api.Documents;
+using DocAgent.Api.Llm;
 using DocAgent.Api.Qa;
 using DocAgent.Api.Data;
 using DocAgent.Core.Abstractions;
@@ -129,7 +130,7 @@ builder.Services.AddDocumentIngestion(builder.Configuration);
 
 // ---- Retrieval, LLM access (IChatClient only, SRS MAIN-1) and Q&A ----
 builder.Services.AddRetrieval(builder.Configuration);
-builder.Services.AddLlm(builder.Configuration);
+builder.Services.AddLlm(builder.Configuration, builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"));
 builder.Services.AddQa(builder.Configuration);
 
 // ---- Email ----
@@ -138,6 +139,7 @@ builder.Services.AddTransient<IEmailSender<AppUser>, SmtpEmailSender>();
 
 // ---- Rate limiting (SRS SEC-8, D27) ----
 builder.Services.AddAuthRateLimiting(builder.Configuration);
+builder.Services.AddLlmKeyRateLimit(builder.Configuration);
 
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
@@ -157,9 +159,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter(); // after authentication: the LLM-key policy is per user
 
 app.MapDefaultEndpoints();
 
@@ -168,6 +170,7 @@ auth.MapIdentityApi<AppUser>();
 auth.MapExternalAuth();
 
 app.MapMe();
+app.MapLlmKeys();
 app.MapDocuments();
 app.MapAsk();
 app.MapWorkflows();

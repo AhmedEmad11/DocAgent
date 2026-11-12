@@ -14,8 +14,9 @@ public sealed record AgentLimits(int MaxToolCalls, TimeSpan Timeout);
 public sealed record LlmRoute(IChatClient Client, LlmRouteInfo Info, ChatOptions? Options = null, AgentLimits? Limits = null);
 
 /// <summary>
-/// Chooses the chat client for the current request. Phase 3 always returns the development client (Ollama);
-/// per-user BYOK clients (Phase 5) and the demo client (Phase 6) plug in here without touching the Q&amp;A code.
+/// Chooses the chat client for the current request: the signed-in user's saved key (BYOK, SRS KEY-6), otherwise the
+/// no-key route (<see cref="INoKeyRouteProvider"/>: Ollama in development, the demo client in Phase 6).
+/// Throws <see cref="LlmAccessException"/> when the user has to add a key or the saved key cannot be read.
 /// </summary>
 public interface ILlmClientFactory
 {

@@ -12,10 +12,10 @@ using Microsoft.Extensions.Options;
 namespace DocAgent.Infrastructure.Agents;
 
 /// <summary>The outcome of checking a draft answer against its cited sources.</summary>
-/// <param name="Answer">The draft without the sentences that were not supported (null when nothing survived).</param>
+/// <param name="Answer">The draft without the sentences that were not supported (null when nothing survived or the verifier gave no usable reply).</param>
 /// <param name="Claims">How many cited sentences were checked.</param>
 /// <param name="Removed">How many of them were removed.</param>
-/// <param name="Skipped">The verifier gave no usable reply, so the draft was kept unchecked.</param>
+/// <param name="Skipped">The verifier gave no usable reply after its retry; the answer is withheld (fail closed), so <c>Answer</c> is null.</param>
 /// <param name="AnswersQuestion">False when the draft only says the information is missing or reports unrelated facts.</param>
 public sealed record VerificationResult(string? Answer, int Claims, int Removed, bool Skipped, bool AnswersQuestion = true);
 
@@ -94,8 +94,9 @@ public sealed partial class AnswerVerifier(IOptions<QaOptions> qaOptions, ILogge
 
         if (parsed is null)
         {
-            logger.LogWarning("Verification: the model gave no usable verdicts; the draft is kept unchecked");
-            return new VerificationResult(answer, claims.Count, 0, true);
+            // Fail closed (stakeholder decision): an answer that could not be checked is not shown.
+            logger.LogWarning("Verification: the model gave no usable verdicts after a retry; the answer is withheld (not found)");
+            return new VerificationResult(null, claims.Count, claims.Count, true);
         }
 
         if (!parsed.AnswersQuestion)

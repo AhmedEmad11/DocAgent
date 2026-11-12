@@ -167,6 +167,21 @@ public sealed class AgentAskTests : IClassFixture<AgentQaScenario>
     }
 
     [Fact]
+    public async Task When_the_verifier_gives_no_usable_reply_the_answer_is_withheld_as_not_found()
+    {
+        var turn = 0;
+        _s.Llm.Handler = (call, _) => Task.FromResult(IsVerifier(call)
+            ? Text("looks fine to me")
+            : Interlocked.Increment(ref turn) == 1 ? ToolCall("search_documents", Search(QaScenario.PricingQuestion)) : Text("The Pro plan costs 20 dollars per month [1]."));
+
+        var body = await Json(await Ask(_s.UserA, QaScenario.PricingQuestion));
+
+        Assert.Equal(2, _s.Llm.Calls.Count(IsVerifier)); // one retry, then fail closed
+        Assert.True(body.GetProperty("notFound").GetBoolean());
+        Assert.Equal(0, body.GetProperty("citations").GetArrayLength());
+    }
+
+    [Fact]
     public async Task The_agent_replying_NOT_FOUND_gives_not_found_in_the_questions_language_without_verification()
     {
         _s.Llm.Handler = Agent((turn, _) => turn == 0 ? ToolCall("search_documents", Search("سعر")) : Text("NOT_FOUND"));

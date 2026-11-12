@@ -30,6 +30,11 @@ public class QaScenario : IAsyncLifetime
     /// <summary>The Phase 3 tests exercise the single-pass path; agent tests use <see cref="AgentQaScenario"/>.</summary>
     public virtual string Mode => "SinglePass";
 
+    /// <summary>Services for the API under test; the default replaces the route factory with the scripted fake client.</summary>
+    protected virtual Action<IServiceCollection> ConfigureServices() => FakeLlmClientFactory.Register(LlmFactory);
+
+    protected virtual IReadOnlyDictionary<string, string?> ExtraSettings => new Dictionary<string, string?>();
+
     public FakeChatClient Llm { get; } = new();
     public FakeLlmClientFactory LlmFactory { get; }
     public DocAgentApiFactory Factory { get; private set; } = null!;
@@ -49,8 +54,9 @@ public class QaScenario : IAsyncLifetime
         ConnectionString = await TestDatabase.CreateAsync(postgres);
         Factory = new DocAgentApiFactory(
             ConnectionString,
-            new Dictionary<string, string?> { ["Documents:Ingestion:PollIntervalSeconds"] = "1", ["Qa:Mode"] = Mode },
-            configureServices: FakeLlmClientFactory.Register(LlmFactory));
+            new Dictionary<string, string?> { ["Documents:Ingestion:PollIntervalSeconds"] = "1", ["Qa:Mode"] = Mode }
+                .Concat(ExtraSettings).ToDictionary(kv => kv.Key, kv => kv.Value),
+            configureServices: ConfigureServices());
 
         UserA = await DocumentTestHelpers.CreateUserAsync(Factory);
         UserB = await DocumentTestHelpers.CreateUserAsync(Factory);

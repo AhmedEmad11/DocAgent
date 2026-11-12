@@ -209,6 +209,11 @@ public sealed class WorkflowEndpointTests : IClassFixture<AgentQaScenario>
     {
         _s.Llm.Handler = async (call, ct) =>
         {
+            if (IsVerifier(call))
+            {
+                return Verdicts(call);
+            }
+
             if (IsAgent(call))
             {
                 return ToolResults(call).Count == 0
@@ -221,8 +226,7 @@ public sealed class WorkflowEndpointTests : IClassFixture<AgentQaScenario>
 
         var body = await Json(await _s.UserA.Client.PostAsJsonAsync("/api/v1/ask", new { question = "Give me an overview of plans.pdf" }));
 
-        // The verifier (a separate call) sees the cited chunks themselves, not the summary; the scripted
-        // workflow handler answers it with an unusable reply, so the draft is kept unchecked.
+        // The verifier (a separate call) sees the cited chunks themselves, not the summary.
         Assert.Equal(1, body.GetProperty("toolCalls").GetInt32());
         Assert.Contains(_s.Llm.Calls, c => !IsAgent(c) && c.Messages[0].Text.Contains("You condense a document"));
         Assert.Equal(2, body.GetProperty("citations").GetArrayLength());

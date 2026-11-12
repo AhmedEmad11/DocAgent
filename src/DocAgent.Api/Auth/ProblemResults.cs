@@ -16,4 +16,8 @@ internal static class ProblemResults
 
     public static IResult UnsupportedMediaType(string detail) =>
         Results.Problem(detail, statusCode: StatusCodes.Status415UnsupportedMediaType, title: "Unsupported file type");
+
+    /// <summary>A Problem Details response with a machine-readable <c>code</c> extension.</summary>
+    public static IResult Coded(int status, string title, string detail, string code) =>
+        Results.Problem(detail, statusCode: status, title: title, extensions: new Dictionary<string, object?> { ["code"] = code });
 }
