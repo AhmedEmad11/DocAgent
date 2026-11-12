@@ -32,6 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
         {
             e.Property(x => x.FileName).HasMaxLength(512);
             e.Property(x => x.ContentType).HasMaxLength(255);
+            e.Property(x => x.ExtractionNotice).HasMaxLength(500);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
             e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.UserId);

@@ -15,8 +15,12 @@ public static class ArabicTextFixer
 {
     private enum CharClass { Rtl, Ltr, Digit, Neutral }
 
-    public static string Fix(string pageText)
+    public static string Fix(string pageText) => Fix(pageText, out _);
+
+    /// <param name="reordered">True when the page's Arabic was stored in reversed (visual) order and had to be reconstructed (SRS D31).</param>
+    public static string Fix(string pageText, out bool reordered)
     {
+        reordered = false;
         if (!ContainsArabic(pageText))
         {
             return pageText;
@@ -24,6 +28,7 @@ public static class ArabicTextFixer
 
         var lines = pageText.Split('\n');
         var visualOrder = LooksVisualOrder(lines);
+        reordered = visualOrder;
         var rtlPage = IsRtlDominant(lines);
 
         var result = new StringBuilder(pageText.Length);

@@ -18,11 +18,14 @@ public static class PdfTextExtractor
 
             var segments = new List<TextSegment>();
             long meaningfulChars = 0;
+            var arabicReordered = false;
             for (var number = 1; number <= pageCount; number++)
             {
                 ct.ThrowIfCancellationRequested();
                 var page = pdf.GetPage(number);
-                var text = TextCleaner.Clean(ArabicTextFixer.Fix(ContentOrderTextExtractor.GetText(page, addDoubleNewline: true))).Trim();
+                var fixedText = ArabicTextFixer.Fix(ContentOrderTextExtractor.GetText(page, addDoubleNewline: true), out var reordered);
+                arabicReordered |= reordered;
+                var text = TextCleaner.Clean(fixedText).Trim();
                 meaningfulChars += text.Count(c => !char.IsWhiteSpace(c));
                 if (text.Length > 0)
                 {
@@ -35,7 +38,7 @@ public static class PdfTextExtractor
                 throw new NoExtractableTextException(NoExtractableTextException.ScannedPdfReason);
             }
 
-            return new ExtractedDocument(segments, pageCount);
+            return new ExtractedDocument(segments, pageCount) { ArabicReordered = arabicReordered };
         }
         catch (Exception ex) when (ex is not DocumentParseException and not OperationCanceledException)
         {

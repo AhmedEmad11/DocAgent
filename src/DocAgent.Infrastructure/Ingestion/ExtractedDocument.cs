@@ -3,7 +3,11 @@ namespace DocAgent.Infrastructure.Ingestion;
 /// <summary>A run of text that shares source metadata: one PDF page, or one heading section of a docx/md file.</summary>
 public sealed record TextSegment(string Text, int? PageNumber = null, string? Section = null);
 
-public sealed record ExtractedDocument(IReadOnlyList<TextSegment> Segments, int? PageCount = null);
+public sealed record ExtractedDocument(IReadOnlyList<TextSegment> Segments, int? PageCount = null)
+{
+    /// <summary>True when a PDF's Arabic text was stored in reversed order and was reconstructed (SRS D31).</summary>
+    public bool ArabicReordered { get; init; }
+}
 
 /// <summary>The file cannot be processed and retrying will not help. The message is shown to the user, so it never contains file content.</summary>
 public class DocumentParseException(string message, Exception? inner = null) : Exception(message, inner);

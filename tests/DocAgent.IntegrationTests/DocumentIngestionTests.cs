@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Embeddings;
+using DocAgent.Infrastructure.Ingestion;
 using DocAgent.TestSupport;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
@@ -86,6 +87,15 @@ public sealed class DocumentIngestionTests(PostgresFixture postgres) : IAsyncLif
         Assert.True(doc.GetProperty("status").GetString() == "Ready", doc.ToString());
         Assert.Equal(bytes.Length, doc.GetProperty("sizeBytes").GetInt64());
         Assert.Equal(JsonValueKind.Null, doc.GetProperty("failureReason").ValueKind);
+        if (kind == "pdf-ar-chromium")
+        {
+            Assert.Equal(IngestionProcessor.ArabicReorderedNotice, doc.GetProperty("extractionNotice").GetString());
+        }
+        else
+        {
+            Assert.Equal(JsonValueKind.Null, doc.GetProperty("extractionNotice").ValueKind); // logical-order PDF, DOCX, TXT, MD: no notice
+        }
+
         if (isPdf)
         {
             Assert.True(doc.GetProperty("pageCount").GetInt32() >= 1);

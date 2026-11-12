@@ -23,6 +23,10 @@ public sealed class IngestionProcessor(
     IOptions<IngestionOptions> options,
     ILogger<IngestionProcessor> logger)
 {
+    /// <summary>Stored on documents whose PDF Arabic had to be reconstructed from reversed order (SRS DOC-11 / D31).</summary>
+    public const string ArabicReorderedNotice =
+        "Arabic text in this PDF was stored in reversed order and was reconstructed automatically; some Arabic words or diacritics may be inaccurate.";
+
     private static readonly TimeSpan TimeoutGrace = TimeSpan.FromSeconds(5);
 
     public async Task<IngestionOutcome> ProcessAsync(ClaimedJob job, CancellationToken ct)
@@ -48,7 +52,7 @@ public sealed class IngestionProcessor(
                 ?? throw new DocumentParseException("The uploaded file is no longer available. Please upload it again.");
 
             var type = DetectedFileTypeExtensions.FromContentType(document.ContentType);
-            var (chunks, pageCount) = await ExtractAndChunkAsync(type, content, ct);
+            var (chunks, pageCount, arabicReordered) = await ExtractAndChunkAsync(type, content, ct);
             if (chunks.Count == 0)
             {
                 throw new NoExtractableTextException("The document contains no text.");
@@ -57,7 +61,7 @@ public sealed class IngestionProcessor(
             var inputs = chunks.Select(c => EmbeddingOptions.PassagePrefix + c.Text).ToList();
             var embeddings = await embedder.GenerateAsync(inputs, cancellationToken: ct);
 
-            if (!await StoreResultAsync(job, document.UserId, chunks, embeddings, pageCount, ct))
+            if (!await StoreResultAsync(job, document.UserId, chunks, embeddings, pageCount, arabicReordered ? ArabicReorderedNotice : null, ct))
             {
                 return IngestionOutcome.DocumentGone;
             }
@@ -96,7 +100,7 @@ public sealed class IngestionProcessor(
         }
     }
 
-    private async Task<(IReadOnlyList<TextChunk> Chunks, int? PageCount)> ExtractAndChunkAsync(DetectedFileType type, byte[] content, CancellationToken ct)
+    private async Task<(IReadOnlyList<TextChunk> Chunks, int? PageCount, bool ArabicReordered)> ExtractAndChunkAsync(DetectedFileType type, byte[] content, CancellationToken ct)
     {
         var o = options.Value;
         var timeout = TimeSpan.FromSeconds(o.ParseTimeoutSeconds);
@@ -107,7 +111,7 @@ public sealed class IngestionProcessor(
         var work = Task.Run(() =>
         {
             var extracted = DocumentTextExtractor.Extract(type, content, o, cts.Token);
-            return (chunker.Chunk(extracted.Segments, cts.Token), extracted.PageCount);
+            return (chunker.Chunk(extracted.Segments, cts.Token), extracted.PageCount, extracted.ArabicReordered);
         }, CancellationToken.None);
 
         try
@@ -122,7 +126,7 @@ public sealed class IngestionProcessor(
     }
 
     private async Task<bool> StoreResultAsync(
-        ClaimedJob job, Guid userId, IReadOnlyList<TextChunk> chunks, GeneratedEmbeddings<Embedding<float>> embeddings, int? pageCount, CancellationToken ct)
+        ClaimedJob job, Guid userId, IReadOnlyList<TextChunk> chunks, GeneratedEmbeddings<Embedding<float>> embeddings, int? pageCount, string? extractionNotice, CancellationToken ct)
     {
         var documentId = job.DocumentId;
         var strategy = db.Database.CreateExecutionStrategy();
@@ -158,6 +162,7 @@ public sealed class IngestionProcessor(
                     .SetProperty(d => d.Status, DocumentStatus.Ready)
                     .SetProperty(d => d.FailureReason, (string?)null)
                     .SetProperty(d => d.PageCount, pageCount)
+                    .SetProperty(d => d.ExtractionNotice, extractionNotice)
                     .SetProperty(d => d.ChunkCount, chunks.Count), ct);
             if (updated == 0)
             {

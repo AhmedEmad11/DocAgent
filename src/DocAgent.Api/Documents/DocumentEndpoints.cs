@@ -16,11 +16,11 @@ public static class DocumentEndpoints
 
     public sealed record DocumentResponse(
         Guid Id, string FileName, string ContentType, long SizeBytes, int? PageCount, int ChunkCount,
-        string Status, string? FailureReason, DateTimeOffset CreatedAt)
+        string Status, string? FailureReason, string? ExtractionNotice, DateTimeOffset CreatedAt)
     {
         public static DocumentResponse From(Document d) => new(
             d.Id, d.FileName, d.ContentType, d.SizeBytes, d.PageCount, d.ChunkCount,
-            d.Status.ToString(), d.FailureReason, d.CreatedAt);
+            d.Status.ToString(), d.FailureReason, d.ExtractionNotice, d.CreatedAt);
     }
 
     public sealed record UploadResponse(Guid Id, string FileName, string Status);

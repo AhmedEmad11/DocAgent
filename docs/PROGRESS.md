@@ -5,7 +5,7 @@ Updated after every change. Newest entries at the top.
 ## Current status
 | Item | Value |
 |---|---|
-| Current phase | Phase 2 implemented and reviewed; Phase 3 next |
+| Current phase | Phase 3: Retrieval and basic Q&A (starting) |
 | Next step | Implement Phase 1, review, stakeholder checkpoint |
 | Blockers | None |
 
@@ -14,7 +14,7 @@ Updated after every change. Newest entries at the top.
 - [x] Development plan approved (v0.2, 2026-11-12)
 - [x] Phase 0: Environment and skeleton (2026-11-12)
 - [x] Phase 1: Data layer and authentication (2026-11-12)
-- [x] Phase 2: Document ingestion (2026-11-12; Arabic PDF quality decision pending)
+- [x] Phase 2: Document ingestion (2026-11-12)
 - [ ] Phase 3: Retrieval and basic Q&A
 - [ ] Phase 4: Agent workflows
 - [ ] Phase 5: BYOK providers and key management
@@ -24,6 +24,19 @@ Updated after every change. Newest entries at the top.
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-12: DOC-11 reviewed and committed; Phase 3 starting
+- Phase 2 CI (run 43276709962): success; 198/198 tests; model downloaded with SHA-256 verification (script exits on mismatch) and cached (~83.5 MB).
+- DOC-11 independent re-run: build 0 warnings, **201 tests passed**.
+
+### 2026-11-12: DOC-11 Arabic PDF extraction notice implemented (pending review)
+- Files changed: `src/DocAgent.Core/Entities/Document.cs` (`ExtractionNotice`), `src/DocAgent.Infrastructure/Data/AppDbContext.cs` (max length 500), `Ingestion/ArabicTextFixer.cs` (`Fix(text, out reordered)`), `Ingestion/ExtractedDocument.cs` (`ArabicReordered`), `Ingestion/PdfTextExtractor.cs`, `Ingestion/IngestionProcessor.cs` (sets the notice, `ArabicReorderedNotice` const), `src/DocAgent.Api/Documents/DocumentEndpoints.cs` (`extractionNotice` in `DocumentResponse`), tests `ArabicPdfTests.cs` and `DocumentIngestionTests.cs`.
+- Migration: `AddDocumentExtractionNotice` (nullable `varchar(500)` on `Documents`).
+- Tests: 201 passed (198 existing + 3 new unit tests; the integration theory now also asserts the notice for the Chromium PDF and null for all other files).
+
+### 2026-11-12: Arabic PDF support marked as best effort
+- Stakeholder decision: keep the heuristic Arabic PDF repair, document it as best effort, and show a notice on documents that needed it. Recorded as SRS D31 and new requirement DOC-11 (`extractionNotice` on document details).
+- Implementation delegated to a Sonnet subagent.
 
 ### 2026-11-12: Phase 2 reviewed and committed
 - CI for the Phase 1 commit `417984c` (run 43270361696): success, 30/30 unit + 47/47 integration.

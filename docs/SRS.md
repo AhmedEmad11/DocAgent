@@ -73,6 +73,7 @@ Explicitly excluded:
 | D28 | When an unconfirmed email/password account is auto-linked to a verified Google/GitHub login, its password is removed (prevents account pre-registration takeover). The owner can set a password later via password reset. |
 | D29 | If a confirmation or reset email fails to send, the request still succeeds; the failure is logged (without content) and the user can request the email again. |
 | D30 | The ONNX embedding model is downloaded at build time by a script (pinned revision, SHA-256 verified) into a git-ignored folder locally and into the Docker image; it is not committed to git and not downloaded at runtime. |
+| D31 | Arabic text extraction from PDFs is **best effort**: many PDFs store Arabic in reversed (visual) order and the API repairs it heuristically. When a PDF needed this repair, the document carries a notice saying Arabic text may be inaccurate. Arabic DOCX, TXT and MD are fully supported. |
 
 ---
 
@@ -147,6 +148,7 @@ Priority: **M** = must have (v1), **S** = should have (v1 if time allows), **C**
 | DOC-8 | A PDF with no extractable text is marked `Failed` with a "scanned PDFs are not supported" reason. | M |
 | DOC-9 | Original files are discarded after text extraction. | M |
 | DOC-10 | Each chunk keeps source metadata: document ID, file name, page number (PDF) or section/heading (docx/md), chunk position. | M |
+| DOC-11 | When Arabic text in a PDF had to be reconstructed from reversed order, the document's details include an extraction notice (`extractionNotice`) explaining that Arabic text may be inaccurate (D31). | M |
 
 ### 3.3 Question answering and agent (QA)
 | ID | Requirement | Pri |

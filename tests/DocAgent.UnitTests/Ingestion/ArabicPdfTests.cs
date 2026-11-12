@@ -82,6 +82,26 @@ public sealed class ArabicPdfTests
     }
 
     [Fact]
+    public void Chromium_pdf_reports_that_arabic_was_reordered()
+    {
+        Assert.True(Extract(TestFiles.ReadFixture("arabic-chromium.pdf")).ArabicReordered);
+    }
+
+    [Fact]
+    public void Logical_order_and_english_pdfs_do_not_report_reordering()
+    {
+        Assert.False(Extract(TestFiles.ArabicLogicalPdf($"{TestFiles.ArabicPage1} {TestFiles.ArabicSentence1} {TestFiles.ArabicSentence2} الرجاء قراءة هذه الوثيقة بعناية")).ArabicReordered);
+        Assert.False(Extract(TestFiles.EnglishPdf("The plan costs 20 dollars per month. " + TestFiles.Prose(100))).ArabicReordered);
+    }
+
+    [Fact]
+    public void Fixer_flag_is_false_for_text_without_arabic()
+    {
+        ArabicTextFixer.Fix("Plain English", out var reordered);
+        Assert.False(reordered);
+    }
+
+    [Fact]
     public void Text_without_arabic_is_returned_unchanged()
     {
         const string english = "Chapter 1: Intro (draft)\nSecond line";
