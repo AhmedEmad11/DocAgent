@@ -64,7 +64,7 @@ Explicitly excluded:
 | D19 | Document limits: demo 3 documents of up to 5 MB each; BYOK 100 documents of up to 25 MB each (OI-3). |
 | D20 | Agent limits: demo 4 tool calls / 60 s timeout; BYOK 10 tool calls / 120 s timeout (OI-4). |
 | D21 | External logins link automatically to an existing account with the same email, only when the provider reports the email as verified (OI-6). |
-| D22 | Email confirmation and password reset are in v1, sent through Gmail SMTP with an app password (OI-7). |
+| D22 | Email confirmation and password reset are in v1 (OI-7). Development sends to a local Mailpit email catcher; the production email provider is chosen before deployment (Phase 8). Gmail SMTP was dropped because app passwords are not available on the stakeholder's account. |
 | D23 | Product/solution name: **DocAgent**. |
 
 ---
@@ -101,7 +101,7 @@ Client ──HTTPS──► ASP.NET Core API (Azure Container Apps)
 ### 2.4 Constraints
 - C1: Every hosted component must fit a free tier (Azure Container Apps free grant, Neon free tier).
 - C2: Neon free tier storage is limited (0.5 GB at the time of writing), so per-user document limits are required (D19). Only extracted text and embeddings are stored (originals are discarded), which is much smaller than the file sizes, but many BYOK users at the 100-document limit could still fill it; storage usage must be monitored.
-- C6: Gmail SMTP has a daily sending limit (about 500 messages/day for a personal account), which caps confirmation and reset emails.
+- C6: The production email provider must have a free tier; its daily sending limit caps confirmation and reset emails. Chosen in Phase 8.
 - C3: The embedding model must be identical in every environment; changing it requires re-embedding all chunks.
 - C4: Free OpenRouter models have per-minute and per-day request limits, and individual free models can be withdrawn.
 - C5: The chat model must support tool calling.
@@ -124,7 +124,7 @@ Priority: **M** = must have (v1), **S** = should have (v1 if time allows), **C**
 | AUTH-4 | Users can sign in with GitHub. | M |
 | AUTH-5 | A Google/GitHub sign-in whose email matches an existing account is linked to that account automatically, only if the provider reports the email as verified; otherwise it is rejected with a clear message. | M |
 | AUTH-6 | Users can sign out and tokens can be refreshed. | M |
-| AUTH-7 | Email/password accounts must confirm their email before using documents or Q&A; users can request a password reset by email. Emails are sent via Gmail SMTP. | M |
+| AUTH-7 | Email/password accounts must confirm their email before using documents or Q&A; users can request a password reset by email. Emails are sent over SMTP: Mailpit in development, a free-tier provider in production (chosen in Phase 8). | M |
 | AUTH-8 | Users can delete their account; this deletes their documents, chunks, and stored key. | M |
 
 ### 3.2 Document management (DOC)
@@ -200,7 +200,7 @@ Priority: **M** = must have (v1), **S** = should have (v1 if time allows), **C**
 | Anthropic, OpenAI, Google Gemini | BYOK providers (user key). |
 | Google, GitHub OAuth | External sign-in. |
 | Neon | Production PostgreSQL + pgvector. |
-| Gmail SMTP | Confirmation and password-reset emails (AUTH-7). |
+| SMTP email | Confirmation and password-reset emails (AUTH-7). Development: Mailpit (local container). Production: provider chosen in Phase 8. |
 
 ---
 
@@ -289,4 +289,4 @@ All resolved on 2026-11-12.
 | OI-4 | Agent limits? | Demo 4 calls / 60 s; BYOK 10 calls / 120 s (D20). |
 | OI-5 | Include Arabic in v1? | Yes; `multilingual-e5-small` int8 (D13). Arabic PDF extraction (right-to-left text) must be tested in Phase 2. |
 | OI-6 | Auto-link external logins by email? | Yes, only for provider-verified emails (D21). |
-| OI-7 | Email confirmation / reset in v1? | Yes, via Gmail SMTP (D22). |
+| OI-7 | Email confirmation / reset in v1? | Yes (D22). Dev: Mailpit; production provider chosen in Phase 8. |

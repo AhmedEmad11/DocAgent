@@ -1,48 +1,24 @@
 # Credential Setup for Phase 1 (local development)
 
-Phase 1 needs three sets of credentials:
+Phase 1 needs two sets of credentials:
 
 | # | Credential | Used for | SRS |
 |---|---|---|---|
-| 1 | Gmail app password | Confirmation and password-reset emails | AUTH-7 |
-| 2 | Google OAuth client | "Sign in with Google" | AUTH-3 |
-| 3 | GitHub OAuth app | "Sign in with GitHub" | AUTH-4 |
+| 1 | Google OAuth client | "Sign in with Google" | AUTH-3 |
+| 2 | GitHub OAuth app | "Sign in with GitHub" | AUTH-4 |
 
 **Rules for secrets**
 - Store them only with `dotnet user-secrets` (commands below). They are saved in `~/.microsoft/usersecrets/`, outside the repository.
 - Never commit them, and do not paste them into the chat. Run the commands yourself, then tell Claude "credentials are set".
 - These are **development** credentials. Production gets separate ones in Phase 8 (different callback URLs, stored as Azure Container Apps secrets).
 
+Email needs **no credentials** in development: the AppHost runs **Mailpit**, a local email catcher, and every confirmation/reset email shows up in its web UI (the link appears in the Aspire dashboard). The production email provider is chosen in Phase 8.
+
 Development API address (from `src/DocAgent.Api/Properties/launchSettings.json`): `http://localhost:5248`
 
 ---
 
-## 1. Gmail app password
-
-An app password lets the API send email through Gmail SMTP without your real password.
-
-1. Use the Gmail account the emails should come **from**. It must have **2-Step Verification** turned on:
-   Google Account → **Security** → **2-Step Verification** → turn on.
-2. Open https://myaccount.google.com/apppasswords
-   (if the page says the setting isn't available, 2-Step Verification is not on, or the account is managed by an organization that blocks app passwords).
-3. Enter an app name, for example `DocAgent dev`, and select **Create**.
-4. Google shows a 16-character password once. Copy it (spaces don't matter).
-5. Save it:
-
-```bash
-cd ~/dotnet
-dotnet user-secrets set "Email:Smtp:Username" "YOUR_ADDRESS@gmail.com" --project src/DocAgent.Api
-dotnet user-secrets set "Email:Smtp:Password" "THE_16_CHAR_APP_PASSWORD" --project src/DocAgent.Api
-dotnet user-secrets set "Email:FromAddress"   "YOUR_ADDRESS@gmail.com" --project src/DocAgent.Api
-```
-
-Non-secret settings (host `smtp.gmail.com`, port `587`, STARTTLS) go in `appsettings.json` in Phase 1.
-
-Limits: about 500 messages per day for a personal Gmail account (SRS C6). You can revoke the app password at any time from the same page.
-
----
-
-## 2. Google OAuth client
+## 1. Google OAuth client
 
 1. Open https://console.cloud.google.com/ and create a project, for example `DocAgent` (top bar → project picker → **New project**).
 2. Go to **APIs & Services → OAuth consent screen** (in newer consoles this is **Google Auth Platform**). If asked to configure it:
@@ -69,7 +45,7 @@ dotnet user-secrets set "Authentication:Google:ClientSecret" "YOUR_CLIENT_SECRET
 
 ---
 
-## 3. GitHub OAuth app
+## 2. GitHub OAuth app
 
 1. Open https://github.com/settings/developers → **OAuth Apps** → **New OAuth App**.
 2. Fill in:
@@ -92,7 +68,7 @@ Note: many GitHub users keep their email private. The API will request the `user
 
 ---
 
-## 4. Check
+## 3. Check
 
 List the saved keys. The command prints the values too, so run it only where nobody else can see your screen:
 
@@ -100,16 +76,13 @@ List the saved keys. The command prints the values too, so run it only where nob
 dotnet user-secrets list --project ~/dotnet/src/DocAgent.Api
 ```
 
-You should see these 7 keys:
+You should see these 4 keys:
 
 ```
 Authentication:GitHub:ClientId
 Authentication:GitHub:ClientSecret
 Authentication:Google:ClientId
 Authentication:Google:ClientSecret
-Email:FromAddress
-Email:Smtp:Password
-Email:Smtp:Username
 ```
 
 Then tell Claude "credentials are set". Claude will check that the keys exist without printing their values.

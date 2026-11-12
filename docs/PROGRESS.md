@@ -25,9 +25,18 @@ Updated after every change. Newest entries at the top.
 
 ## Log
 
+### 2026-11-12: Email changed from Gmail SMTP to Mailpit (dev); production provider deferred
+- Gmail app passwords are not available on the stakeholder's Google account ("The setting you are looking for is not available for your account").
+- Stakeholder decision: use **Mailpit** (local email catcher in the Aspire AppHost) for development; choose the free-tier production email provider in Phase 8.
+- SRS updated: D22, C6, AUTH-7, external services table, OI-7.
+- Plan updated: stack table (SMTP via MailKit behind `IEmailSender`), Phase 1 needs and tasks, Phase 8 task, risks, deferred questions (new: Phase 8 email provider).
+- SETUP_CREDENTIALS.md: removed the Gmail section; only the Google and GitHub OAuth credentials (4 keys) are needed now.
+- Stakeholder installed nothing new; earlier in this session RTK's global Claude hook was installed (`rtk init -g --auto-patch`) at the stakeholder's request; it takes effect after restarting Claude Code.
+
 ### 2026-11-12: CI actions upgraded, graphify-out ignored, credential setup guide
 - CI: `actions/checkout@v4` → `@v7` (v7.0.1, 2026-07-20) and `actions/setup-dotnet@v4` → `@v6` (v6.1.0, 2026-11-03); both run on Node.js 24, which removes the Node 20 deprecation warning.
 - `.gitignore`: added `graphify-out/` (local knowledge-graph output).
+- CI run 43250851902 on commit `6720f4c`: **success**, 4/4 tests passed, build 0 warnings, no Node.js deprecation warnings.
 - API project: `dotnet user-secrets init` (adds `UserSecretsId` to `DocAgent.Api.csproj`).
 - Added [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md): steps for the Gmail app password, Google OAuth client and GitHub OAuth app. It fixes the configuration key names Phase 1 will read: `Email:Smtp:Username`, `Email:Smtp:Password`, `Email:FromAddress`, `Authentication:Google:ClientId/ClientSecret`, `Authentication:GitHub:ClientId/ClientSecret`. Dev callback URLs: `/signin-google` (http 5248 and https 7090), `/signin-github` (http 5248).
 

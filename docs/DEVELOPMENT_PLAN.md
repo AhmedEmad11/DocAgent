@@ -32,7 +32,7 @@ Rules for this project:
 | Anthropic | Official `Anthropic` NuGet SDK (`IChatClient` support) | SDK free; usage paid by user |
 | Gemini | Gemini OpenAI-compatible endpoint, or Google's .NET SDK (decided in Phase 5 after checking tool-calling support) | SDK free; usage paid by user |
 | Embeddings | ONNX Runtime, in-process, `multilingual-e5-small` int8 (English + Arabic, 384 dims) | Yes |
-| Email | Gmail SMTP with an app password (MailKit) | Yes (daily send limit) |
+| Email | SMTP via MailKit behind an `IEmailSender` interface. Dev: Mailpit container in the Aspire AppHost (web UI to read caught emails). Production: free-tier provider chosen in Phase 8 | Yes |
 | Parsing | PdfPig (PDF), DocumentFormat.OpenXml (docx), Markdig (md) | Yes |
 | Tokenizing/chunking | Microsoft.ML.Tokenizers + custom recursive splitter | Yes |
 | Background work | `BackgroundService` + Postgres-backed job table | Yes |
@@ -116,11 +116,11 @@ Each phase ends with: tests passing, PROGRESS.md updated, and a short review wit
 - **Done when:** `dotnet run` on the AppHost starts the API and Postgres; `/health/ready` is healthy; CI passes.
 
 ### Phase 1: Data layer and authentication
-**Needs from stakeholder before starting:** a Gmail account + app password for sending; Google and GitHub OAuth app credentials for local development (setup steps will be provided).
+**Needs from stakeholder before starting:** Google and GitHub OAuth app credentials for local development (see [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md)). Email needs no credentials in development (Mailpit).
 - EF Core model: Identity tables, Document, Chunk (vector column + HNSW index), IngestionJob, UserLlmCredential.
 - Migrations, plus enabling the pgvector extension.
 - Identity bearer-token endpoints; Google and GitHub external login with automatic linking for provider-verified emails (AUTH-5).
-- Email confirmation and password reset via Gmail SMTP (AUTH-7); unconfirmed accounts blocked from documents and Q&A.
+- Mailpit added to the AppHost; email confirmation and password reset sent over SMTP to Mailpit (AUTH-7); unconfirmed accounts blocked from documents and Q&A.
 - Per-user data filter (EF global query filter on `UserId`), as required by SEC-3.
 - Auth rate limiting (SEC-8). Account deletion (AUTH-8).
 - **Tests:** registration/login, external-login flow (mocked), tenant isolation.
@@ -185,7 +185,7 @@ Each phase ends with: tests passing, PROGRESS.md updated, and a short review wit
 - Data Protection key ring persisted outside the container (location decided in this phase, e.g. stored in the database, encrypted).
 - GitHub Actions: build → test → push image → deploy.
 - Register production OAuth redirect URIs with Google and GitHub.
-- Gmail SMTP app password stored as a Container Apps secret.
+- Choose the production email provider (free tier) with the stakeholder; its SMTP credentials stored as Container Apps secrets.
 - **Done when:** acceptance criteria SRS §8 pass against the deployed service.
 - **Checkpoint:** stakeholder review.
 
@@ -202,7 +202,7 @@ Each phase ends with: tests passing, PROGRESS.md updated, and a short review wit
 | `gemma4:12b` and the demo model handle tools differently from BYOK models | Inconsistent agent behavior | Evaluation set run against each model; simple, strict tool schemas; capped loops |
 | Free OpenRouter models withdrawn or rate limited | Demo outage | Model IDs in config; fallback model; clear user messages |
 | Neon free storage (0.5 GB) fills up | Uploads fail | Per-user quotas (D19); store only text + embeddings; storage monitoring |
-| Gmail SMTP daily limit or account lock | Confirmation/reset emails stop | Email sender behind an interface so a provider can be swapped by configuration |
+| Production email provider limits or account problems | Confirmation/reset emails stop | Email sender behind an interface so a provider can be swapped by configuration |
 | Arabic PDF text extracted in wrong order | Poor Arabic answers | Test in Phase 2; report results before continuing |
 | Azure free grant exceeded | Unexpected cost | Scale-to-zero, small CPU/memory, budget alert in Azure |
 | Prompt injection inside uploaded documents | Data leakage / misuse | Tools hard-scoped to the user; document text marked as untrusted in prompts |
@@ -222,7 +222,8 @@ Resolved 2026-11-12:
 Questions deferred to the start of their phase (they need information that only exists then):
 | Phase | Question |
 |---|---|
-| 1 | Gmail account/app password and OAuth app credentials (stakeholder supplies) |
+| 1 | Google and GitHub OAuth app credentials (stakeholder supplies) |
+| 8 | Which free-tier email provider to use in production |
 | 2 | Ship the ONNX model inside the image, or download it on first start? |
 | 4 | Accuracy level the evaluation set must reach |
 | 5 | Which providers the stakeholder can provide test keys for |
