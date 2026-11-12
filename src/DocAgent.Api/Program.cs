@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using DocAgent.Api.Auth;
 using DocAgent.Api.Documents;
+using DocAgent.Api.Qa;
 using DocAgent.Api.Data;
 using DocAgent.Core.Abstractions;
 using DocAgent.Core.Entities;
@@ -10,6 +11,9 @@ using DocAgent.Infrastructure.Auth;
 using DocAgent.Infrastructure.Data;
 using DocAgent.Infrastructure.Email;
 using DocAgent.Infrastructure.Ingestion;
+using DocAgent.Infrastructure.Llm;
+using DocAgent.Infrastructure.Qa;
+using DocAgent.Infrastructure.Retrieval;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Authorization;
@@ -123,6 +127,11 @@ if (!string.IsNullOrWhiteSpace(gitHubId) && !string.IsNullOrWhiteSpace(gitHubSec
 // ---- Document ingestion: parsing, chunking, ONNX embeddings, background worker ----
 builder.Services.AddDocumentIngestion(builder.Configuration);
 
+// ---- Retrieval, LLM access (IChatClient only, SRS MAIN-1) and Q&A ----
+builder.Services.AddRetrieval(builder.Configuration);
+builder.Services.AddLlm(builder.Configuration);
+builder.Services.AddQa(builder.Configuration);
+
 // ---- Email ----
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddTransient<IEmailSender<AppUser>, SmtpEmailSender>();
@@ -160,6 +169,7 @@ auth.MapExternalAuth();
 
 app.MapMe();
 app.MapDocuments();
+app.MapAsk();
 
 app.Run();
 

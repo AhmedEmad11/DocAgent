@@ -56,12 +56,14 @@ public static class Extensions
             .WithMetrics(metrics =>
             {
                 metrics.AddAspNetCoreInstrumentation()
+                    .AddMeter("DocAgent.*") // LLM token usage and call duration
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation();
             })
             .WithTracing(tracing =>
             {
                 tracing.AddSource(builder.Environment.ApplicationName)
+                    .AddSource("DocAgent.*") // retrieval, Q&A and LLM-call spans
                     .AddAspNetCoreInstrumentation(tracing =>
                         // Exclude health check requests from tracing
                         tracing.Filter = context =>

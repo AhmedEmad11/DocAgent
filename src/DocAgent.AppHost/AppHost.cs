@@ -16,6 +16,10 @@ var mailpit = builder.AddContainer("mailpit", "axllent/mailpit", "v1.33.1")
     .WithEndpoint(targetPort: 1025, name: "smtp", scheme: "tcp");
 var mailpitSmtp = mailpit.GetEndpoint("smtp");
 
+// Ollama runs on the host (not containerized). The API is a plain process, so localhost is the developer machine.
+// Override with the Ollama:Endpoint setting (AppHost config or the Ollama__Endpoint environment variable).
+var ollamaEndpoint = builder.Configuration["Ollama:Endpoint"] ?? "http://localhost:11434";
+
 builder.AddProject<Projects.DocAgent_Api>("api")
     .WithReference(database)
     .WaitFor(database)
@@ -24,6 +28,7 @@ builder.AddProject<Projects.DocAgent_Api>("api")
     .WithEnvironment("Email__Smtp__Port", mailpitSmtp.Property(EndpointProperty.Port))
     .WithEnvironment("Email__Smtp__UseStartTls", "false")
     .WithEnvironment("Email__FromAddress", "noreply@docagent.local")
+    .WithEnvironment("Llm__Ollama__Endpoint", ollamaEndpoint)
     .WithHttpHealthCheck("/health/ready");
 
 builder.Build().Run();

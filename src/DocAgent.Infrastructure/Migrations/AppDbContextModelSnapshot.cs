@@ -133,6 +133,12 @@ namespace DocAgent.Infrastructure.Migrations
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Embedding"), "hnsw");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Embedding"), new[] { "vector_cosine_ops" });
 
+                    b.HasIndex("Text")
+                        .HasDatabaseName("IX_Chunks_Text_fts")
+                        .HasAnnotation("Npgsql:TsVectorConfig", "simple");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Text"), "gin");
+
                     b.HasIndex("UserId");
 
                     b.HasIndex("DocumentId", "Ordinal");

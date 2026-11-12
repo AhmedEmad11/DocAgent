@@ -49,6 +49,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
             e.HasIndex(x => x.Embedding)
                 .HasMethod("hnsw")
                 .HasOperators("vector_cosine_ops");
+            // Full-text search for hybrid retrieval. 'simple' (no stemming, no stop words) works for Arabic and English alike.
+            e.HasIndex(x => x.Text)
+                .HasDatabaseName("IX_Chunks_Text_fts")
+                .HasMethod("gin")
+                .IsTsVectorExpressionIndex("simple");
             e.HasQueryFilter(x => x.UserId == CurrentUserId);
         });
 
