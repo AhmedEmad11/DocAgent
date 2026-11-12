@@ -50,9 +50,9 @@ dotnet user-secrets set "Authentication:Google:ClientSecret" "YOUR_CLIENT_SECRET
 1. Open https://github.com/settings/developers → **OAuth Apps** → **New OAuth App**.
 2. Fill in:
    - **Application name:** `DocAgent (dev)`
-   - **Homepage URL:** `http://localhost:5248`
-   - **Authorization callback URL:** `http://localhost:5248/signin-github`
-     (A GitHub OAuth app allows only one callback host and port, so the dev app uses the http address.)
+   - **Homepage URL:** `https://localhost:7090`
+   - **Authorization callback URL** (may be labelled **Redirect URI**): `https://localhost:7090/signin-github`
+     (A GitHub OAuth app allows only one callback host and port. Development uses HTTPS because the API redirects `http://localhost:5248` to `https://localhost:7090`.)
    - Leave **Enable Device Flow** unchecked.
 3. Select **Register application**.
 4. On the app page, copy the **Client ID**, then select **Generate a new client secret** and copy it (it is shown once).

@@ -5,15 +5,15 @@ Updated after every change. Newest entries at the top.
 ## Current status
 | Item | Value |
 |---|---|
-| Current phase | Phase 0 complete; Phase 1 not started |
-| Next step | Stakeholder sets credentials following [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md), then Phase 1 starts |
-| Blockers | Waiting for Phase 1 credentials |
+| Current phase | Phase 2: Document ingestion (starting) |
+| Next step | Implement Phase 1, review, stakeholder checkpoint |
+| Blockers | None |
 
 ## Phase checklist
 - [x] SRS approved (v0.2, 2026-11-12)
 - [x] Development plan approved (v0.2, 2026-11-12)
 - [x] Phase 0: Environment and skeleton (2026-11-12)
-- [ ] Phase 1: Data layer and authentication
+- [x] Phase 1: Data layer and authentication (2026-11-12)
 - [ ] Phase 2: Document ingestion
 - [ ] Phase 3: Retrieval and basic Q&A
 - [ ] Phase 4: Agent workflows
@@ -24,6 +24,40 @@ Updated after every change. Newest entries at the top.
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-12: Phase 1 checkpoint passed
+- Stakeholder verified real Google and GitHub sign-in end to end via `https://localhost:7090/dev/external-login-test` (after updating the GitHub OAuth app callback to `https://localhost:7090/signin-github`).
+- Stakeholder decisions recorded as SRS D28 (remove password on auto-link of unconfirmed account), D29 (log and continue on email send failure), D30 (ONNX model downloaded at build time, pinned + SHA-256 checked).
+- Phase 1 committed and pushed.
+
+### 2026-11-12: Dev external sign-in switched to HTTPS
+- Stakeholder's browser test of `/dev/external-login-test` returned 400 "returnUrl is missing or not allowed" for both providers. Cause (verified): in Development the API redirects `http://localhost:5248` → `https://localhost:7090` (`UseHttpsRedirection`), so the page sent an https return URL that was not allowlisted.
+- Stakeholder decision: use HTTPS in development (matches production).
+- `appsettings.Development.json`: allowlist entry changed to `https://localhost:7090/dev/external-login-test`.
+- SETUP_CREDENTIALS.md: GitHub OAuth app Homepage/callback changed to `https://localhost:7090` / `https://localhost:7090/signin-github` (stakeholder must update the GitHub app). Google already had the https redirect URI.
+- SRS D24 updated with the https test page URL.
+
+### 2026-11-12: Phase 1 reviewed by main session (checkpoint pending)
+- Independent re-run: `dotnet build` 0 errors / 0 warnings; `dotnet test` **77 passed** (30 unit, 47 integration).
+- Code review of the security-relevant parts (external account resolution, one-time code issue/redeem, return-URL validation, tenant query filters, EmailConfirmed policy, rate limiter, email sender, startup migration): no blocking issues found.
+- Plan §3 API surface updated to the actual routes (Identity API names such as `confirmEmail`, plus `external/callback`, `external/exchange`, `/dev/external-login-test`, `GET /api/v1/me`).
+- Items for stakeholder decision at the checkpoint: (a) removing the password of an *unconfirmed* account when it is auto-linked to a verified Google/GitHub login (security hardening not in the SRS); (b) email send failures are logged and swallowed rather than failing the request.
+- Not yet verified: a real Google/GitHub browser round trip (needs the stakeholder).
+- Phase 1 changes are not committed yet; waiting for the checkpoint.
+
+### 2026-11-12: Phase 1 implemented (pending review)
+- **Packages added** (net10.0): Core: Microsoft.Extensions.Identity.Stores 10.0.15, Pgvector 0.3.2. Infrastructure: Microsoft.AspNetCore.Identity.EntityFrameworkCore 10.0.15, Npgsql.EntityFrameworkCore.PostgreSQL 10.0.3, Pgvector.EntityFrameworkCore 0.3.0, Microsoft.EntityFrameworkCore.Design 10.0.15, MailKit 4.18.2 (5.0.0 has a breaking `SendAsync` API, so 4.x was kept), plus a FrameworkReference to Microsoft.AspNetCore.App (for `IEmailSender<T>`). Api: Aspire.Npgsql.EntityFrameworkCore.PostgreSQL 13.6.5 (replaces Aspire.Npgsql), Microsoft.AspNetCore.Authentication.Google 10.0.15, AspNet.Security.OAuth.GitHub 10.1.0. Local tool: dotnet-ef 10.0.15 (`dotnet-tools.json`).
+- **Migration**: `20261112163510_InitialCreate` (Infrastructure/Migrations): `vector` extension, Identity tables, Documents, Chunks (`vector(384)` + HNSW `vector_cosine_ops`), IngestionJobs, UserLlmCredentials, ExternalLoginCodes (unique CodeHash). Applied at startup only in Development/Testing (15 s bound, failure logged and ignored).
+- **Endpoints**: `/api/v1/auth/*` (Identity API: register, login, refresh, confirmEmail, resendConfirmationEmail, forgotPassword, resetPassword, manage/*), `GET /api/v1/auth/external/{google|github}`, `GET /api/v1/auth/external/callback`, `POST /api/v1/auth/external/exchange`, `GET/DELETE /api/v1/me`, `GET /dev/external-login-test` (Development only). Policy `EmailConfirmed` defined, applied to nothing yet. Auth rate limit 10/min/IP (config `RateLimiting:Auth:*`).
+- **Other**: tenant query filters (Document, Chunk, IngestionJob, UserLlmCredential) via `ICurrentUser`; MailKit `SmtpEmailSender`; Mailpit container (`axllent/mailpit:v1.33.1`) in the AppHost; `DocAgent.Api.http` updated.
+- **Tests**: 30 unit + 47 integration, all passing (`dotnet test`), build 0 warnings.
+- **AppHost verification** (run, then stopped): `/health/ready` = Healthy; Mailpit container up; `POST /register` produced 1 message ("Confirm your DocAgent email") visible via Mailpit `/api/v1/messages`; `/external/google` and `/external/github` returned 302 to accounts.google.com and github.com; disallowed returnUrl gave 400 Problem Details; anonymous `/api/v1/me` gave 401; `/dev/external-login-test` 200. A real Google/GitHub round trip (consent screen, callback, code exchange) was NOT exercised: needs a browser.
+- **Deviations / choices**: (1) `AddNpgsqlDbContext` registers a pooled DbContext that cannot take the scoped `ICurrentUser`; it failed at runtime under Development scope validation. Used `AddDbContext` + `EnrichNpgsqlDbContext` instead. (2) Aspire's EF health check was disabled and replaced by `DatabaseHealthCheck` (plain connection, no retry) because Aspire's retry strategy made the unreachable-DB check take about 70 s. (3) `IngestionJob` has a denormalized `UserId` (needed for its query filter). (4) When an unconfirmed password account is auto-linked to a verified external login, its password is removed (blocks pre-registration takeover). (5) `SmtpEmailSender` logs and swallows send failures so registration does not 500. (6) Rate limit is one shared counter per IP across the listed endpoints; behind a proxy, forwarded headers must be configured (Phase 8). (7) Test factory enables `ValidateScopes`.
+
+### 2026-11-12: Phase 1 started
+- Stakeholder set the 4 OAuth user-secrets; verified present and non-empty without printing values (Google client ID has the expected `.apps.googleusercontent.com` suffix).
+- Phase 1 decisions recorded as SRS D24–D27: one-time-code token handoff for external sign-in (dev return URLs: `http://localhost:3000` + built-in API test page); Identity default password rules; 1 h access / 14 d refresh tokens; auth rate limit 10/min per IP.
+- Implementation delegated to a Sonnet subagent (per stakeholder preference), with review by the main session afterwards.
 
 ### 2026-11-12: Email changed from Gmail SMTP to Mailpit (dev); production provider deferred
 - Gmail app passwords are not available on the stakeholder's Google account ("The setting you are looking for is not available for your account").

@@ -66,6 +66,13 @@ Explicitly excluded:
 | D21 | External logins link automatically to an existing account with the same email, only when the provider reports the email as verified (OI-6). |
 | D22 | Email confirmation and password reset are in v1 (OI-7). Development sends to a local Mailpit email catcher; the production email provider is chosen before deployment (Phase 8). Gmail SMTP was dropped because app passwords are not available on the stakeholder's account. |
 | D23 | Product/solution name: **DocAgent**. |
+| D24 | External sign-in hands tokens to the client with a **one-time code**: the API redirects to an allowlisted return URL with a short-lived, single-use code, and the client exchanges it for tokens. Tokens never appear in URLs. Dev allowlist: `http://localhost:3000` plus the built-in API test page at `https://localhost:7090/dev/external-login-test` (development runs over HTTPS). |
+| D25 | Password rules: ASP.NET Core Identity defaults (min 6 chars; upper, lower, digit and symbol required). |
+| D26 | Token lifetimes: access token 1 hour, refresh token 14 days. |
+| D27 | Auth endpoint rate limit: 10 requests per minute per IP address (configurable). |
+| D28 | When an unconfirmed email/password account is auto-linked to a verified Google/GitHub login, its password is removed (prevents account pre-registration takeover). The owner can set a password later via password reset. |
+| D29 | If a confirmation or reset email fails to send, the request still succeeds; the failure is logged (without content) and the user can request the email again. |
+| D30 | The ONNX embedding model is downloaded at build time by a script (pinned revision, SHA-256 verified) into a git-ignored folder locally and into the Docker image; it is not committed to git and not downloaded at runtime. |
 
 ---
 

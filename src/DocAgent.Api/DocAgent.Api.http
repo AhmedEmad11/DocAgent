@@ -8,3 +8,75 @@ GET {{DocAgent.Api_HostAddress}}/health/ready
 
 ### OpenAPI document (Development only)
 GET {{DocAgent.Api_HostAddress}}/openapi/v1.json
+
+### ---- Auth (Identity API endpoints, bearer tokens) ----
+
+### Register (sends a confirmation email; in dev read it in Mailpit's web UI, see the Aspire dashboard)
+POST {{DocAgent.Api_HostAddress}}/api/v1/auth/register
+Content-Type: application/json
+
+{ "email": "me@example.com", "password": "Passw0rd!x" }
+
+### Login: returns accessToken (1 h) and refreshToken (14 d)
+POST {{DocAgent.Api_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{ "email": "me@example.com", "password": "Passw0rd!x" }
+
+> {% client.global.set("accessToken", response.body.accessToken); client.global.set("refreshToken", response.body.refreshToken); %}
+
+### Refresh tokens
+POST {{DocAgent.Api_HostAddress}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### Confirm email (use the link from the email)
+GET {{DocAgent.Api_HostAddress}}/api/v1/auth/confirmEmail?userId=<id>&code=<code>
+
+### Resend confirmation email
+POST {{DocAgent.Api_HostAddress}}/api/v1/auth/resendConfirmationEmail
+Content-Type: application/json
+
+{ "email": "me@example.com" }
+
+### Forgot password (emails a reset code to confirmed addresses)
+POST {{DocAgent.Api_HostAddress}}/api/v1/auth/forgotPassword
+Content-Type: application/json
+
+{ "email": "me@example.com" }
+
+### Reset password with the emailed code
+POST {{DocAgent.Api_HostAddress}}/api/v1/auth/resetPassword
+Content-Type: application/json
+
+{ "email": "me@example.com", "resetCode": "<code>", "newPassword": "N3wPassw0rd!" }
+
+### ---- External sign-in (Google / GitHub) ----
+# Open these in a browser, not here: they redirect to the provider. returnUrl must be on the allowlist
+# (Authentication:External:AllowedReturnUrls). Easiest end-to-end try: /dev/external-login-test (Development only).
+
+### Start Google sign-in (302 to accounts.google.com)
+GET {{DocAgent.Api_HostAddress}}/api/v1/auth/external/google?returnUrl=http://localhost:3000
+
+### Start GitHub sign-in (302 to github.com)
+GET {{DocAgent.Api_HostAddress}}/api/v1/auth/external/github?returnUrl=http://localhost:3000
+
+### Exchange the one-time code from the redirect (?code=...) for tokens (valid 60 s, single use)
+POST {{DocAgent.Api_HostAddress}}/api/v1/auth/external/exchange
+Content-Type: application/json
+
+{ "code": "<code from returnUrl>" }
+
+### Built-in external login test page (Development only)
+GET {{DocAgent.Api_HostAddress}}/dev/external-login-test
+
+### ---- Current user ----
+
+### Who am I
+GET {{DocAgent.Api_HostAddress}}/api/v1/me
+Authorization: Bearer {{accessToken}}
+
+### Delete my account and all my data (204)
+DELETE {{DocAgent.Api_HostAddress}}/api/v1/me
+Authorization: Bearer {{accessToken}}

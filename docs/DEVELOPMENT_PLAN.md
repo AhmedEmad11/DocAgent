@@ -78,14 +78,19 @@ The repository will be public on GitHub (PQ-2).
 
 | Method | Route | Purpose | SRS |
 |---|---|---|---|
-| POST | `/api/v1/auth/register` | Email/password sign-up | AUTH-1 |
-| POST | `/api/v1/auth/login` | Email/password sign-in | AUTH-2 |
+| POST | `/api/v1/auth/register` | Email/password sign-up (sends confirmation email) | AUTH-1, AUTH-7 |
+| POST | `/api/v1/auth/login` | Email/password sign-in → bearer tokens | AUTH-2 |
 | POST | `/api/v1/auth/refresh` | Refresh token | AUTH-6 |
-| GET | `/api/v1/auth/external/{google\|github}` | Start external sign-in | AUTH-3/4 |
-| GET | `/api/v1/auth/confirm-email` | Confirm email from the emailed link | AUTH-7 |
-| POST | `/api/v1/auth/resend-confirmation` | Resend the confirmation email | AUTH-7 |
-| POST | `/api/v1/auth/forgot-password` | Send a password-reset email | AUTH-7 |
-| POST | `/api/v1/auth/reset-password` | Set a new password with the reset code | AUTH-7 |
+| GET | `/api/v1/auth/confirmEmail` | Confirm email from the emailed link | AUTH-7 |
+| POST | `/api/v1/auth/resendConfirmationEmail` | Resend the confirmation email | AUTH-7 |
+| POST | `/api/v1/auth/forgotPassword` | Send a password-reset code | AUTH-7 |
+| POST | `/api/v1/auth/resetPassword` | Set a new password with the reset code | AUTH-7 |
+| GET/POST | `/api/v1/auth/manage/info`, `/manage/2fa` | Built into Identity API endpoints (not used by v1 requirements) | — |
+| GET | `/api/v1/auth/external/{google\|github}?returnUrl=` | Start external sign-in (returnUrl must be allowlisted) | AUTH-3/4, D24 |
+| GET | `/api/v1/auth/external/callback` | Internal: provider returns here; redirects to returnUrl with `?code=` or `?error=` | AUTH-5, D24 |
+| POST | `/api/v1/auth/external/exchange` | Exchange one-time code for tokens | D24 |
+| GET | `/dev/external-login-test` | Development-only page to try external sign-in | D24 |
+| GET | `/api/v1/me` | Current user: id, email, confirmed, linked logins, has LLM key | AUTH |
 | DELETE | `/api/v1/me` | Delete account and all data | AUTH-8 |
 | POST | `/api/v1/documents` | Upload (multipart) | DOC-1..4 |
 | GET | `/api/v1/documents` | List documents | DOC-6 |
