@@ -44,16 +44,46 @@ public static partial class LlmKeyEndpoints
 
     public static void MapLlmKeys(this IEndpointRouteBuilder app)
     {
-        var key = app.MapGroup("/api/v1/me/llm-key").RequireAuthorization(AuthPolicies.EmailConfirmed);
+        var key = app.MapGroup("/api/v1/me/llm-key").RequireAuthorization(AuthPolicies.EmailConfirmed).WithTags("LLM key");
 
         // Validation calls cost the user money and hit a third party: limited per user.
-        key.MapPut("", SaveAsync).RequireRateLimiting(RateLimitPolicy);
-        key.MapGet("", GetAsync);
-        key.MapDelete("", DeleteAsync);
+        key.MapPut("", SaveAsync).RequireRateLimiting(RateLimitPolicy)
+            .Produces<KeyResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status402PaymentRequired)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .WithSummary("Save or replace my LLM key")
+            .WithDescription(
+                "Bring your own key: provider (openrouter, anthropic, openai, gemini), model and apiKey. The key is checked with one small call to the provider before anything is saved "
+                + "and is stored encrypted; it is never returned or logged. 400 with the provider's reason (code llm_key_invalid, llm_model_unknown) when the provider rejects it, 402 llm_no_credit. "
+                + "With a saved key all requests use it and the higher document limits apply. Limited to 10 requests per minute per user.");
+        key.MapGet("", GetAsync)
+            .Produces<KeyResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("Show my saved LLM key")
+            .WithDescription("Provider, model and the last 4 characters of the key. 404 when none is saved.");
+        key.MapDelete("", DeleteAsync)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithSummary("Delete my saved LLM key")
+            .WithDescription("Idempotent (204 even when no key is saved). Afterwards requests use the demo model and the demo limits; existing documents stay.");
 
         app.MapGet("/api/v1/providers/{provider}/models", ListModelsAsync)
             .RequireAuthorization(AuthPolicies.EmailConfirmed)
-            .RequireRateLimiting(RateLimitPolicy);
+            .RequireRateLimiting(RateLimitPolicy)
+            .WithTags("LLM key")
+            .Produces<ModelsResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status402PaymentRequired)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .WithSummary("List the provider's models that support tool calling")
+            .WithDescription(
+                "Uses the key in the X-Llm-Api-Key header (so a model can be chosen before the first save), else the saved key when it belongs to this provider. "
+                + "The key goes in a header, never in the URL. 404 for an unknown provider. Limited to 10 requests per minute per user (shared with saving a key).");
     }
 
     private static async Task<IResult> SaveAsync(

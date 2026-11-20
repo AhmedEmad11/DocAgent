@@ -38,6 +38,7 @@ public sealed class OllamaNoKeyRouteProvider(OllamaChatClientFactory ollama) : I
 public sealed class DemoNoKeyRouteProvider(
     IProviderChatClientFactory providers,
     DemoQuotaService quota,
+    DemoGlobalThrottle throttle,
     IOptions<LlmOptions> llmOptions,
     IOptions<AgentOptions> agentOptions,
     ILoggerFactory loggerFactory) : INoKeyRouteProvider
@@ -53,6 +54,7 @@ public sealed class DemoNoKeyRouteProvider(
     public async ValueTask<LlmRoute?> GetRouteAsync(CancellationToken ct = default)
     {
         var demo = llmOptions.Value.Demo;
+        throttle.Acquire(); // the shared key's own limit first: a refused request must not cost the user a question
         var charge = await quota.ChargeAsync(ct); // before any model call; throws DemoQuotaExceededException
 
         var key = demo.OpenRouterApiKey!; // required at startup (AddLlm)

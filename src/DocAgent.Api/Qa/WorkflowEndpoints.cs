@@ -1,5 +1,7 @@
 using DocAgent.Api.Auth;
 using DocAgent.Api.Llm;
+using DocAgent.Api.Security;
+using Microsoft.AspNetCore.RateLimiting;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Agents;
 using DocAgent.Infrastructure.Data;
@@ -20,8 +22,27 @@ public static class WorkflowEndpoints
 
     public static void MapWorkflows(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/v1/documents/{id:guid}/summary", SummarizeAsync).RequireAuthorization(AuthPolicies.EmailConfirmed);
-        app.MapPost("/api/v1/documents/compare", CompareAsync).RequireAuthorization(AuthPolicies.EmailConfirmed);
+        app.MapPost("/api/v1/documents/{id:guid}/summary", SummarizeAsync)
+            .RequireAuthorization(AuthPolicies.EmailConfirmed)
+            .RequireRateLimiting(ResourceRateLimiting.AskPolicy)
+            .WithTags("Questions")
+            .Produces<AskEndpoints.AskResponse>()
+            .WithAnswerProblems()
+            .WithSummary("Summarize a document")
+            .WithDescription(
+                "Summarizes one Ready document with citations; the optional body {focus} (at most 500 characters) steers the summary. "
+                + "Written in the language of the focus, else of the document. 404 for an unknown or foreign document, 409 when it is not Ready. In demo mode it costs one of the daily questions.");
+
+        app.MapPost("/api/v1/documents/compare", CompareAsync)
+            .RequireAuthorization(AuthPolicies.EmailConfirmed)
+            .RequireRateLimiting(ResourceRateLimiting.AskPolicy)
+            .WithTags("Questions")
+            .Produces<AskEndpoints.AskResponse>()
+            .WithAnswerProblems()
+            .WithSummary("Compare two documents")
+            .WithDescription(
+                "Compares two different Ready documents (documentIdA, documentIdB) with citations to both; optional focus at most 500 characters. "
+                + "404 for an unknown or foreign document, 409 when one is not Ready. In demo mode it costs one of the daily questions.");
     }
 
     private static async Task<IResult> SummarizeAsync(

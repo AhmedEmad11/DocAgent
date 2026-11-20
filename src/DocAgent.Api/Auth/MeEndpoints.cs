@@ -19,9 +19,9 @@ public static class MeEndpoints
 
     public static void MapMe(this IEndpointRouteBuilder app)
     {
-        var me = app.MapGroup("/api/v1/me").RequireAuthorization();
+        var me = app.MapGroup("/api/v1/me").RequireAuthorization().WithTags("Account");
 
-        me.MapGet("", async (HttpContext http, UserManager<AppUser> users, AppDbContext db, INoKeyRouteProvider noKey, DemoQuotaService quota, CancellationToken ct) =>
+        var getMe = me.MapGet("", async (HttpContext http, UserManager<AppUser> users, AppDbContext db, INoKeyRouteProvider noKey, DemoQuotaService quota, CancellationToken ct) =>
         {
             var user = await users.GetUserAsync(http.User);
             if (user is null)
@@ -42,9 +42,12 @@ public static class MeEndpoints
                 user.Id, user.Email, user.EmailConfirmed,
                 logins.Select(l => l.LoginProvider).Order().ToArray(), hasKey, demo));
         });
+        getMe.Produces<MeResponse>()
+            .WithSummary("Get my account")
+            .WithDescription("The signed-in user: id, email, whether the email is confirmed, linked external logins, whether an own LLM key is saved, and in demo mode today's question allowance and the privacy notice. Works before the email is confirmed.");
 
         // AUTH-8: removing the user cascades (in the database) to documents, chunks, jobs, credential and codes.
-        me.MapDelete("", async (HttpContext http, UserManager<AppUser> users) =>
+        var deleteMe = me.MapDelete("", async (HttpContext http, UserManager<AppUser> users) =>
         {
             var user = await users.GetUserAsync(http.User);
             if (user is null)
@@ -57,5 +60,8 @@ public static class MeEndpoints
                 ? Results.NoContent()
                 : Results.Problem("The account could not be deleted.", statusCode: StatusCodes.Status500InternalServerError);
         });
+        deleteMe.Produces(StatusCodes.Status204NoContent)
+            .WithSummary("Delete my account")
+            .WithDescription("Permanently deletes the account with all documents, chunks, the stored LLM key and demo usage. Cannot be undone.");
     }
 }

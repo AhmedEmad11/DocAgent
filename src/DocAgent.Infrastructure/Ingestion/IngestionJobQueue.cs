@@ -52,15 +52,20 @@ public sealed class IngestionJobQueue(AppDbContext db, IOptions<IngestionOptions
     /// <summary>
     /// REL-3: jobs left Running by a crash or restart are put back in the queue, or failed when they have
     /// already used all their attempts (a document that keeps crashing the process must not loop forever).
-    /// Assumes a single worker instance owns the queue at startup.
+    /// At startup (<paramref name="staleFor"/> null) every Running job counts as interrupted, which assumes a single worker
+    /// instance owns the queue. While running, the worker calls it with a lease: only jobs not updated for that long are taken
+    /// back (a job whose database write failed after an error, a hung embedding), so a live job on another instance is left alone.
     /// </summary>
-    public async Task<int> RecoverInterruptedAsync(CancellationToken ct)
+    public async Task<int> RecoverInterruptedAsync(CancellationToken ct, TimeSpan? staleFor = null)
     {
         var maxAttempts = options.Value.MaxAttempts;
+        var any = staleFor is null;
+        var staleSeconds = (staleFor ?? TimeSpan.Zero).TotalSeconds;
         var failed = await db.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE "IngestionJobs" SET "State" = 'Failed', "UpdatedAt" = now(),
                    "LastError" = 'Processing was interrupted repeatedly.'
             WHERE "State" = 'Running' AND "Attempts" >= {maxAttempts}
+              AND ({any} OR "UpdatedAt" < now() - make_interval(secs => {staleSeconds}))
             """, ct);
         await db.Database.ExecuteSqlRawAsync("""
             UPDATE "Documents" SET "Status" = 'Failed',
@@ -74,8 +79,9 @@ public sealed class IngestionJobQueue(AppDbContext db, IOptions<IngestionOptions
             WHERE "DocumentId" IN (SELECT "DocumentId" FROM "IngestionJobs"
                                    WHERE "State" = 'Failed' AND "LastError" = 'Processing was interrupted repeatedly.')
             """, ct);
-        var requeued = await db.Database.ExecuteSqlRawAsync("""
-            UPDATE "IngestionJobs" SET "State" = 'Queued', "UpdatedAt" = now() WHERE "State" = 'Running'
+        var requeued = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "IngestionJobs" SET "State" = 'Queued', "UpdatedAt" = now()
+            WHERE "State" = 'Running' AND ({any} OR "UpdatedAt" < now() - make_interval(secs => {staleSeconds}))
             """, ct);
         await db.Database.ExecuteSqlRawAsync("""
             UPDATE "Documents" SET "Status" = 'Pending'

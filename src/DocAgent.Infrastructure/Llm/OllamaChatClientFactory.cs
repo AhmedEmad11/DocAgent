@@ -19,7 +19,13 @@ public sealed class OllamaChatClientFactory : IDisposable
         var ollama = options.Value.Ollama;
         // A plain HttpClient on purpose: the shared HTTP resilience handler has short attempt timeouts that suit
         // normal APIs, not a local model that may take a minute. The Q&A request timeout bounds the call instead.
-        _http = new HttpClient { BaseAddress = new Uri(ollama.Endpoint), Timeout = Timeout.InfiniteTimeSpan };
+        _http = new HttpClient(
+            new TransientRetryHandler(new SocketsHttpHandler(), Math.Max(0, ollama.Retries), TimeSpan.FromMilliseconds(Math.Max(1, ollama.RetryDelayMilliseconds))),
+            disposeHandler: true)
+        {
+            BaseAddress = new Uri(ollama.Endpoint),
+            Timeout = Timeout.InfiniteTimeSpan,
+        };
         var client = new OllamaApiClient(_http, ollama.Model);
         _route = new LlmRoute(
             ChatClientPipeline.Wrap(client, loggerFactory),

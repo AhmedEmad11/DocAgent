@@ -1,4 +1,6 @@
 using DocAgent.Api.Auth;
+using DocAgent.Api.Security;
+using Microsoft.AspNetCore.RateLimiting;
 using DocAgent.Core.Abstractions;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Data;
@@ -27,33 +29,60 @@ public static class DocumentEndpoints
 
     public static void MapDocuments(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/documents").RequireAuthorization(AuthPolicies.EmailConfirmed);
+        var group = app.MapGroup("/api/v1/documents").RequireAuthorization(AuthPolicies.EmailConfirmed).WithTags("Documents");
 
         // The request-size limit is set per request inside UploadAsync (IHttpMaxRequestBodySizeFeature), from the caller's tier.
         group.MapPost("", UploadAsync)
-            .DisableAntiforgery(); // bearer-token API: no cookie auth, so no CSRF surface
+            .DisableAntiforgery() // bearer-token API: no cookie auth, so no CSRF surface
+            .RequireRateLimiting(ResourceRateLimiting.UploadPolicy)
+            .Accepts<UploadForm>("multipart/form-data")
+            .Produces<UploadResponse>(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            .ProducesProblem(StatusCodes.Status415UnsupportedMediaType)
+            .WithSummary("Upload a document")
+            .WithDescription(
+                "Send one file in a multipart/form-data field named 'file': PDF (text-based), Word (.docx), plain text (.txt) or Markdown (.md). "
+                + "The type is checked by content, not only by the extension. Returns 202 with the document id at once; extraction, chunking and embedding run in the "
+                + "background, so poll GET /api/v1/documents/{id} until status is Ready or Failed. Limits: demo accounts 3 documents of up to 5 MB, accounts with their own LLM key "
+                + "100 documents of up to 25 MB (413 when the file is too large, 409 at the document limit). At most 2 uploads per user at a time (429).");
 
         group.MapGet("", async (AppDbContext db, CancellationToken ct) =>
-        {
-            // Tenant filter limits this to the caller's documents.
-            var documents = await db.Documents.AsNoTracking().OrderByDescending(d => d.CreatedAt).ToListAsync(ct);
-            return Results.Ok(documents.Select(DocumentResponse.From));
-        });
+            {
+                // Tenant filter limits this to the caller's documents.
+                var documents = await db.Documents.AsNoTracking().OrderByDescending(d => d.CreatedAt).ToListAsync(ct);
+                return Results.Ok(documents.Select(DocumentResponse.From));
+            })
+            .Produces<IEnumerable<DocumentResponse>>()
+            .WithSummary("List my documents")
+            .WithDescription("All of the caller's documents, newest first, with status (Pending, Processing, Ready, Failed), failure reason, page and chunk counts and the Arabic extraction notice when one applies.");
 
         group.MapGet("{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
-        {
-            var document = await db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, ct);
-            return document is null ? ProblemResults.NotFound("Document not found.") : Results.Ok(DocumentResponse.From(document));
-        });
+            {
+                var document = await db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, ct);
+                return document is null ? ProblemResults.NotFound("Document not found.") : Results.Ok(DocumentResponse.From(document));
+            })
+            .Produces<DocumentResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("Get one document")
+            .WithDescription("404 for an unknown id and for a document that belongs to another user (the two cannot be told apart).");
 
         group.MapDelete("{id:guid}", async (Guid id, AppDbContext db, CancellationToken ct) =>
-        {
-            // Filtered to the caller; another user's id deletes nothing and looks like a missing document.
-            // Chunks, jobs and staged bytes go with it (database cascade).
-            var deleted = await db.Documents.Where(d => d.Id == id).ExecuteDeleteAsync(ct);
-            return deleted == 0 ? ProblemResults.NotFound("Document not found.") : Results.NoContent();
-        });
+            {
+                // Filtered to the caller; another user's id deletes nothing and looks like a missing document.
+                // Chunks, jobs and staged bytes go with it (database cascade).
+                var deleted = await db.Documents.Where(d => d.Id == id).ExecuteDeleteAsync(ct);
+                return deleted == 0 ? ProblemResults.NotFound("Document not found.") : Results.NoContent();
+            })
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("Delete a document")
+            .WithDescription("Permanently deletes the document with its chunks and embeddings. 404 for an unknown id or another user's document.");
     }
+
+    /// <summary>Describes the multipart body for the OpenAPI document only; the upload handler reads the form itself.</summary>
+    public sealed record UploadForm(IFormFile File);
 
     private static async Task<IResult> UploadAsync(
         HttpContext http,

@@ -46,6 +46,10 @@ public static class AuthRateLimiting
                 {
                     http.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
                 }
+                else
+                {
+                    http.Response.Headers.RetryAfter = "2"; // concurrency caps carry no hint: a slot frees up when a running request ends
+                }
 
                 await http.RequestServices.GetRequiredService<IProblemDetailsService>().WriteAsync(
                     new ProblemDetailsContext

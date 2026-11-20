@@ -23,8 +23,23 @@ public static class ExternalAuthEndpoints
     public static void MapExternalAuth(this RouteGroupBuilder auth)
     {
         auth.MapGet("/external/callback", Callback).ExcludeFromDescription();
-        auth.MapPost("/external/exchange", Exchange);
-        auth.MapGet("/external/{provider}", Start);
+        auth.MapPost("/external/exchange", Exchange)
+            .WithTags("Authentication")
+            .Produces<Microsoft.AspNetCore.Authentication.BearerToken.AccessTokenResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .WithSummary("Exchange a one-time code for tokens")
+            .WithDescription(
+                "After Google or GitHub sign-in the API redirects to the client's return URL with a short-lived, single-use code; send it here to get the same token response as /login. "
+                + "Tokens never appear in URLs. 400 when the code is invalid, expired or already used.");
+        auth.MapGet("/external/{provider}", Start)
+            .WithTags("Authentication")
+            .Produces(StatusCodes.Status302Found)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .WithSummary("Start sign-in with Google or GitHub")
+            .WithDescription(
+                "Browser navigation, not an XHR call: redirects to the provider. provider is google or github; returnUrl must be one of the allowed return URLs (400 otherwise). "
+                + "The provider email must be verified; it links to an existing account with the same email. Afterwards the browser returns to returnUrl with ?code=... (or ?error=...).");
     }
 
     private static async Task<IResult> Start(

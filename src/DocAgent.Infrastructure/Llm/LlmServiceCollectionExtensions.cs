@@ -57,6 +57,7 @@ public static class LlmServiceCollectionExtensions
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<DemoQuotaService>();
+        services.AddSingleton<DemoGlobalThrottle>();
 
         services.AddDataProtection().SetApplicationName("DocAgent");
         services.AddSingleton<ILlmKeyProtector, LlmKeyProtector>();

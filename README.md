@@ -7,7 +7,7 @@ A document Q&A API: users upload documents and ask questions about them. Answers
 - Progress log: [docs/PROGRESS.md](docs/PROGRESS.md)
 
 ## Status
-Phase 5 (BYOK providers and key management) implemented, pending review. See the progress log for details.
+Phase 7 (hardening) implemented, pending review; next is Phase 8 (deployment). See the progress log for details.
 
 ## Prerequisites
 - .NET 10 SDK
@@ -95,14 +95,32 @@ Signed-in users **without a saved key** are served by a free model on OpenRouter
 - **When it is on:** `Llm:NoKeyRoute=Auto` (default) = local Ollama in Development/Testing, **Demo elsewhere**. Development can opt in with `Llm:NoKeyRoute=Demo`. Demo needs the operator key: the app **fails at startup** with a clear message if it is missing (set `Llm:NoKeyRoute=None` for a deployment without demo).
 - **Daily allowance (DEMO-2):** `Llm:Demo:DailyQuestionLimit` = 10 per user per **UTC calendar day**, kept in the database (`DemoUsages`), so restarts do not reset it. `/ask`, `/ask/stream`, summary and compare each cost one, charged by one conditional upsert before the model is called (parallel requests cannot exceed the limit). Requests rejected before the model call (400/404/409) cost nothing, and a question is given back when the demo models fail before answering anything. When used up: **429 `demo_quota_exceeded`** with `Retry-After` (seconds to the next UTC midnight), `limit`, `resetsAt` and a message to add your own key (DEMO-5). `GET /api/v1/me` shows `demo: {limit, used, remaining, resetsAt, privacyNotice}` (null for users with a key or without a demo route).
 - **Reduced limits (DEMO-3):** `Agent:Limits:Demo` (4 tool calls, 60 s) and, for uploads, `Documents:Limits:Demo` (3 documents, 5 MB; BYOK 100 / 25 MB). A user who removes their key keeps existing documents but cannot upload above the demo limit.
+- **Shared limit for the operator key (Phase 7):** `Llm:Demo:GlobalRequestsPerMinute` = 20 demo requests per minute across **all** users (sliding window, per process; 0 = off). The free OpenRouter models have per-minute and per-day limits that every demo user shares; without a local limit a few users could exhaust them for everyone and each request would still travel to OpenRouter to be refused. It runs before the daily allowance is charged and before any provider call, so a refused request costs the user nothing: 429 `demo_rate_limited` with `Retry-After`. One request is one ask, stream, summary or comparison, and each makes several model calls, so the right value depends on the free models' current per-minute limit.
 - **Privacy (PRIV-1):** every demo answer (ask, stream, summary, compare) starts its `notices[]` with a notice that the question and the document excerpts go to a free third-party model via OpenRouter whose provider may log and use them; `GET /api/v1/me` carries the same text.
 - **Errors:**
   | Cause | Status | `code` |
   |---|---|---|
   | Daily allowance used up | 429 + `Retry-After` | `demo_quota_exceeded` |
-  | Both demo models rate limited | 429 + `Retry-After` | `demo_rate_limited` |
+  | Both demo models rate limited, or the shared request limit (below) is used up | 429 + `Retry-After` | `demo_rate_limited` |
   | Both demo models down, or operator key/model setting wrong | 503 | `demo_unavailable` |
 - **Not verified live:** all demo tests use mocked HTTP. `LiveDemoSmokeTests` (`tests/DocAgent.UnitTests/Llm/LiveProviderSmokeTests.cs`) runs a tool-calling round trip against both models when `DOCAGENT_LIVE_DEMO_OPENROUTER_KEY` is set (optional `DOCAGENT_LIVE_DEMO_MODEL`), otherwise it is skipped.
+
+## Security and hardening (Phase 7)
+The review (OWASP API Security Top 10, 2023) with every finding, its status and test is in [docs/SECURITY_REVIEW.md](docs/SECURITY_REVIEW.md). What it added to the running API (all configuration, safe defaults):
+- **Auth decisions are explicit:** `tests/DocAgent.IntegrationTests/EndpointInventory.cs` lists every mapped endpoint and whether it is public, signed-in or needs a confirmed email; `HardeningTests` fails when an endpoint is added without an entry or its protection differs.
+- **Resource limits (API4):** JSON bodies are limited to `Limits:MaxJsonBodyBytes` (256 KB, 413 Problem Details; the upload has its own limit by tier); per-user **concurrency** caps `RateLimiting:Upload:MaxConcurrentPerUser` (2) and `RateLimiting:Ask:MaxConcurrentPerUser` (4, shared by ask, stream, summary and compare), 429 with `Retry-After` (0 turns a cap off); `Documents:Ingestion:MaxChunksPerDocument` (2000, about 3 MB of text): a longer document is marked `Failed` with a message to split it. This also gives retrieval a defined maximum: 100 documents x 2000 chunks = 200,000 chunks for one user (PERF-2, below).
+- **Headers (SEC-4):** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `Cache-Control: no-store`, `Permissions-Policy`; no `Server` header; HSTS (1 year, subdomains) outside Development.
+- **Behind a proxy:** set `ForwardedHeaders:Enabled=true` when the API runs behind a TLS-terminating proxy that is the only way in (Azure Container Apps ingress). It trusts `X-Forwarded-For`/`-Proto`, so HSTS sees HTTPS and the auth rate limit sees the client IP instead of the proxy's. Leave it off otherwise: anyone could spoof their IP.
+- **CORS:** off unless `Cors:AllowedOrigins` lists exact origins (Development: `http://localhost:3000`, for the Next.js UI). No wildcard (refused at startup), no credentials (bearer tokens).
+- **Host names:** set `AllowedHosts` to the API's public host name in production. Identity builds the confirmation link from the request's `Host` header; a startup warning is logged when it is still `*`.
+- **OpenAPI** (`/openapi/v1.json`): Development only; `OpenApi:Enabled=true` serves it elsewhere. Every operation has a summary, description, all status codes (Problem Details), the Bearer scheme and, for the main requests, examples; `OpenApiTests` checks this.
+- **Retries (REL-2):** the local Ollama client retries connection failures and 502/503/504 (`Llm:Ollama:Retries` 2, doubling delay from 250 ms); the database uses Npgsql's retrying execution strategy; confirmation/reset emails time out after `Email:Smtp:TimeoutSeconds` (10) and retry a dropped connection or temporary 4xx once (`MaxAttempts` 2); ingestion jobs retry up to `MaxAttempts` (3) with backoff, interrupted ones are recovered at start and, while running, jobs idle longer than `StaleJobMinutes` (30) are taken back. Calls to the hosted LLM providers are deliberately **not** retried (see the review).
+
+### Retrieval load test (PERF-2)
+`tests/DocAgent.IntegrationTests/RetrievalLoadTests.cs` is skipped unless `DOCAGENT_PERF_TESTS=1`. It seeds one user at the maximum (100 documents x 2000 chunks, 384-dim synthetic vectors generated inside PostgreSQL) plus 100,000 chunks of ten other users in a Testcontainers pgvector, builds the HNSW and full-text indexes, then measures p50/p95 of `Retriever.SearchAsync` (real ONNX query embedding included) for vector-only, hybrid and document-scoped queries, and prints an `EXPLAIN ANALYZE`. It fails when p95 is over `DOCAGENT_PERF_P95_MS` (1000). Other knobs: `DOCAGENT_PERF_CHUNKS_PER_DOC`, `_DOCS`, `_OTHER_CHUNKS`, `_QUERIES`, `DOCAGENT_PERF_OUTPUT=<file>`. Needs Docker and the embedding model; takes several minutes and a few GB of disk.
+```bash
+DOCAGENT_PERF_TESTS=1 dotnet test tests/DocAgent.IntegrationTests --filter "FullyQualifiedName~RetrievalLoadTests"
+```
 
 ## Agent evaluation (SRS D32)
 `tests/DocAgent.EvalTests` holds a fixed bilingual corpus (`Corpus/`) and the question set (`eval-set.json`: answerable questions of several types, at least 40% Arabic, plus unanswerable ones). It needs Docker, the embedding model and Ollama with `gemma4:12b`, and is skipped in normal `dotnet test` runs (only its grader unit tests run):

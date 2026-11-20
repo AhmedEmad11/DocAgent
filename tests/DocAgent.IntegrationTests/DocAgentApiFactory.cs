@@ -8,7 +8,7 @@ namespace DocAgent.IntegrationTests;
 
 /// <summary>
 /// Runs the real API in-process, pointed at a test PostgreSQL database. Emails go to
-/// <see cref="Emails"/> instead of SMTP. The auth rate limit is raised unless a test wants the real one.
+/// <see cref="Emails"/> instead of SMTP. The rate limits (auth, key, ask, upload, shared demo throttle) are raised unless a test wants the real ones.
 /// </summary>
 public sealed class DocAgentApiFactory(
     string connectionString,
@@ -29,6 +29,9 @@ public sealed class DocAgentApiFactory(
         {
             builder.UseSetting("RateLimiting:Auth:PermitLimit", "10000");
             builder.UseSetting("RateLimiting:LlmKey:PermitLimit", "10000");
+            builder.UseSetting("RateLimiting:Ask:MaxConcurrentPerUser", "10000");
+            builder.UseSetting("RateLimiting:Upload:MaxConcurrentPerUser", "10000");
+            builder.UseSetting("Llm:Demo:GlobalRequestsPerMinute", "0"); // tests that exercise the shared throttle set it themselves
         }
 
         foreach (var (key, value) in settings ?? new Dictionary<string, string?>())

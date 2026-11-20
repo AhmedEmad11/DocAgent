@@ -58,6 +58,13 @@ public sealed class IngestionProcessor(
                 throw new NoExtractableTextException("The document contains no text.");
             }
 
+            if (chunks.Count > options.Value.MaxChunksPerDocument)
+            {
+                // Before embedding: a document this long must not cost the CPU time or the storage.
+                throw new DocumentParseException(
+                    $"The document is too long to index: it has more than {options.Value.MaxChunksPerDocument} text sections. Split it into smaller documents.");
+            }
+
             var inputs = chunks.Select(c => EmbeddingOptions.PassagePrefix + c.Text).ToList();
             var embeddings = await embedder.GenerateAsync(inputs, cancellationToken: ct);
 

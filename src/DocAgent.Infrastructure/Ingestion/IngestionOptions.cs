@@ -31,6 +31,16 @@ public sealed class IngestionOptions
     /// <summary>PDFs with more pages are rejected (bounds parse time).</summary>
     public int MaxPdfPages { get; set; } = 2000;
 
+    /// <summary>
+    /// Most text chunks one document may produce (about 1,600 characters each, so roughly 3 MB of text or 1,000 pages). Bounds
+    /// storage and index size per document (SRS C2) and gives retrieval a defined worst case (PERF-2): with the BYOK limit of
+    /// 100 documents a user holds at most 100 x this many chunks. A longer document is marked Failed with a message to split it.
+    /// </summary>
+    public int MaxChunksPerDocument { get; set; } = 2000;
+
+    /// <summary>A Running job whose last update is older than this is taken back by the stale-job check (worker died or hung mid-job).</summary>
+    public int StaleJobMinutes { get; set; } = 30;
+
     /// <summary>A PDF whose average non-whitespace characters per page is below this is treated as scanned.</summary>
     public int MinCharsPerPdfPage { get; set; } = 20;
 }

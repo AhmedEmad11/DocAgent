@@ -29,6 +29,13 @@ public sealed class DemoOptions
 
     /// <summary>Questions per user per UTC day (DEMO-2); summaries and comparisons count as one each.</summary>
     public int DailyQuestionLimit { get; set; } = 10;
+
+    /// <summary>
+    /// Demo requests per minute across all users (the shared operator key's own throttle; see <see cref="DemoGlobalThrottle"/>).
+    /// One request is one ask, stream, summary or comparison; each of those makes several model calls, so keep this at or
+    /// below the free models' per-minute limit divided by the calls per request you expect. 0 = no local limit.
+    /// </summary>
+    public int GlobalRequestsPerMinute { get; set; } = 20;
 }
 
 public sealed class OllamaOptions
@@ -41,4 +48,10 @@ public sealed class OllamaOptions
 
     /// <summary>Context window requested from Ollama. Its server default (4096) would silently truncate long prompts.</summary>
     public int NumCtx { get; set; } = 8192;
+
+    /// <summary>Retries when the server cannot be reached or answers 502/503/504 (REL-2); 0 = none.</summary>
+    public int Retries { get; set; } = 2;
+
+    /// <summary>Delay before the first retry; it doubles each time.</summary>
+    public int RetryDelayMilliseconds { get; set; } = 250;
 }

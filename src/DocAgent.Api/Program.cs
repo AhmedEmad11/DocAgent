@@ -4,6 +4,8 @@ using System.Text.Json;
 using DocAgent.Api.Auth;
 using DocAgent.Api.Documents;
 using DocAgent.Api.Llm;
+using DocAgent.Api.OpenApi;
+using DocAgent.Api.Security;
 using DocAgent.Api.Qa;
 using DocAgent.Api.Data;
 using DocAgent.Core.Abstractions;
@@ -22,6 +24,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// No "Server: Kestrel" header (OWASP API8).
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 // OpenTelemetry, health checks, service discovery, HTTP resilience.
 builder.AddServiceDefaults();
@@ -140,24 +145,54 @@ builder.Services.AddTransient<IEmailSender<AppUser>, SmtpEmailSender>();
 // ---- Rate limiting (SRS SEC-8, D27) ----
 builder.Services.AddAuthRateLimiting(builder.Configuration);
 builder.Services.AddLlmKeyRateLimit(builder.Configuration);
+builder.Services.AddResourceRateLimits(builder.Configuration); // per-user concurrency caps on upload and ask (OWASP API4)
 
-builder.Services.AddOpenApi();
+// ---- HTTP hardening (SRS SEC-4): CORS for the UI origin(s) only, trusted proxy headers, HSTS ----
+builder.Services.AddUiCors(builder.Configuration);
+builder.Services.AddForwardedHeadersIfEnabled(builder.Configuration);
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+});
+
+builder.Services.AddDocAgentOpenApi();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
 await app.ApplyMigrationsIfNeededAsync();
 
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing")
+    && string.IsNullOrWhiteSpace(app.Configuration["AllowedHosts"]?.Replace("*", "")))
+{
+    // Identity builds the confirmation link from the request's Host header; without a host allow-list a forged Host header ends up in the email.
+    app.Logger.LogWarning("AllowedHosts is '*' or empty. Set AllowedHosts to the public host name(s) of this API in production.");
+}
+
+app.UseForwardedHeadersIfEnabled(app.Configuration); // first: everything below sees the client's scheme and IP
+app.UseSecurityHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue("OpenApi:Enabled", false))
 {
     app.MapOpenApi();
+}
+
+if (app.Environment.IsDevelopment())
+{
     app.MapDevExternalLoginTestPage();
 }
 
 app.UseHttpsRedirection();
+app.UseRequestBodyLimit(app.Configuration);
+app.UseUiCors(app.Configuration);
 
 app.UseAuthentication();
 app.UseAuthorization();

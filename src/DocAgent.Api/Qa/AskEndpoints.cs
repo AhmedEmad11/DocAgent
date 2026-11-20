@@ -2,6 +2,8 @@ using System.Text.Json;
 using System.Threading.Channels;
 using DocAgent.Api.Auth;
 using DocAgent.Api.Llm;
+using DocAgent.Api.Security;
+using Microsoft.AspNetCore.RateLimiting;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Agents;
 using DocAgent.Infrastructure.Data;
@@ -42,9 +44,46 @@ public static class AskEndpoints
     public static void MapAsk(this IEndpointRouteBuilder app)
     {
         // Stateless (SRS QA-12, D14): nothing about the question or the answer is stored.
-        app.MapPost("/api/v1/ask", AskAsync).RequireAuthorization(AuthPolicies.EmailConfirmed);
-        app.MapPost("/api/v1/ask/stream", AskStreamAsync).RequireAuthorization(AuthPolicies.EmailConfirmed);
+        app.MapPost("/api/v1/ask", AskAsync)
+            .RequireAuthorization(AuthPolicies.EmailConfirmed)
+            .RequireRateLimiting(ResourceRateLimiting.AskPolicy)
+            .WithTags("Questions")
+            .Produces<AskResponse>()
+            .WithAnswerProblems()
+            .WithSummary("Ask a question about my documents")
+            .WithDescription(
+                "Answers from the caller's Ready documents (all of them, or the ones listed in documentIds) with citations and a verification pass; "
+                + "'notFound' is true when the documents do not contain the answer. 'mode' says whether the demo model or the caller's own key served it. "
+                + "Stateless: nothing about the question or answer is stored. question is at most 2000 characters, documentIds at most 100. "
+                + "Errors carry a 'code': demo_quota_exceeded and demo_rate_limited (demo), llm_key_required, llm_key_invalid, llm_no_credit, llm_rate_limited, llm_unavailable, llm_model_unknown, llm_request_rejected, llm_key_unreadable. "
+                + "At most 4 questions per user at a time (429).");
+
+        app.MapPost("/api/v1/ask/stream", AskStreamAsync)
+            .RequireAuthorization(AuthPolicies.EmailConfirmed)
+            .RequireRateLimiting(ResourceRateLimiting.AskPolicy)
+            .WithTags("Questions")
+            .Produces<string>(StatusCodes.Status200OK, "text/event-stream")
+            .WithAnswerProblems()
+            .WithSummary("Ask a question and stream progress (Server-Sent Events)")
+            .WithDescription(
+                "Same request and validation as POST /api/v1/ask; those errors are normal responses before the stream starts. "
+                + "Events: searching, tool_call (data: {\"tool\": name}), verifying, then answer (data: the /ask response JSON) or error (data: status, title, optional code). "
+                + "The answer arrives whole after verification, not token by token.");
     }
+
+    /// <summary>Problem responses shared by every endpoint that runs the language model.</summary>
+    internal static RouteHandlerBuilder WithAnswerProblems(this RouteHandlerBuilder builder) => builder
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status402PaymentRequired)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .ProducesProblem(StatusCodes.Status502BadGateway)
+        .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+        .ProducesProblem(StatusCodes.Status504GatewayTimeout);
 
     private static async Task<IResult> AskAsync(AskRequest request, AppDbContext db, AskService ask, CancellationToken ct)
     {

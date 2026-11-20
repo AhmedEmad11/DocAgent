@@ -13,6 +13,7 @@ public sealed class IngestionWorker(
     ILogger<IngestionWorker> logger) : BackgroundService
 {
     private static readonly TimeSpan ErrorDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan StaleCheckInterval = TimeSpan.FromMinutes(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -44,11 +45,24 @@ public sealed class IngestionWorker(
         }
 
         var poll = TimeSpan.FromSeconds(Math.Max(1, options.Value.PollIntervalSeconds));
+        var staleFor = TimeSpan.FromMinutes(Math.Max(1, options.Value.StaleJobMinutes));
+        var nextStaleCheck = DateTimeOffset.UtcNow + StaleCheckInterval;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await using var scope = scopes.CreateAsyncScope();
+                if (DateTimeOffset.UtcNow >= nextStaleCheck)
+                {
+                    // REL-3 while running: a job can stay Running when its failure could not be written (database down at that moment).
+                    nextStaleCheck = DateTimeOffset.UtcNow + StaleCheckInterval;
+                    var reclaimed = await scope.ServiceProvider.GetRequiredService<IngestionJobQueue>().RecoverInterruptedAsync(stoppingToken, staleFor);
+                    if (reclaimed > 0)
+                    {
+                        logger.LogWarning("Took back {Count} stale ingestion job(s).", reclaimed);
+                    }
+                }
+
                 var claimed = await scope.ServiceProvider.GetRequiredService<IngestionJobQueue>().ClaimNextAsync(stoppingToken);
                 if (claimed is null)
                 {

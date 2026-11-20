@@ -29,7 +29,7 @@ public sealed class ManualClock : TimeProvider
 /// The real route selection in demo mode (<c>Llm:NoKeyRoute=Demo</c>): no-key users go to OpenRouter on the operator's key, with the
 /// provider HTTP mocked. The daily limit is 3 here to keep the tests fast (the default of 10 is covered separately).
 /// </summary>
-public sealed class DemoScenario(PostgresFixture postgres) : QaScenario(postgres)
+public class DemoScenario(PostgresFixture postgres) : QaScenario(postgres)
 {
     public const string OperatorKey = "sk-or-v1-OPERATORKEY-0a1b2c3d4e5f60718293a4b5c6d7e8f9";
     public const int DailyLimit = 3;
