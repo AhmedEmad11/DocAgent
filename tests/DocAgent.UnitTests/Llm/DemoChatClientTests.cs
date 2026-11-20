@@ -83,7 +83,9 @@ public sealed class DemoChatClientTests
 
         Assert.Equal("from fallback", (await client.GetResponseAsync("q")).Text);
 
-        Assert.Equal([Primary, Fallback], transport.Requests.Select(ModelOf));
+        // 5xx: the primary is tried twice (one retry in the HTTP layer, REL-2), then the fallback. 429 and 404: straight to the fallback.
+        var retried = status is HttpStatusCode.ServiceUnavailable or HttpStatusCode.BadGateway;
+        Assert.Equal(retried ? [Primary, Primary, Fallback] : [Primary, Fallback], transport.Requests.Select(ModelOf));
         Assert.Equal(Fallback, client.CurrentInfo().Model);
         Assert.Equal(0, refunds[0]);
         Assert.Contains(logger.Lines, l => l.StartsWith("Warning") && l.Contains(Primary));

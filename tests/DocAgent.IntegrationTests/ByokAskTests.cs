@@ -217,6 +217,7 @@ public sealed class ByokAskTests : IClassFixture<ByokScenario>, IAsyncLifetime
             ("summary", () => _s.UserA.Client.PostAsJsonAsync($"/api/v1/documents/{_s.PlansPdf}/summary", new { })),
             ("compare", () => _s.UserA.Client.PostAsJsonAsync("/api/v1/documents/compare", new { documentIdA = _s.PlansPdf, documentIdB = _s.HolidaysTxt })),
         };
+        var expectedCalls = (int)providerStatus >= 500 ? 2 : 1;
         foreach (var (name, send) in requests)
         {
             _s.Backend.Reset();
@@ -234,7 +235,7 @@ public sealed class ByokAskTests : IClassFixture<ByokScenario>, IAsyncLifetime
                 Assert.Contains("event: error", text);
                 Assert.Contains($"\"status\":{expectedStatus}", text);
                 Assert.Contains($"\"code\":\"{expectedCode}\"", text);
-                Assert.True(_s.Backend.Requests.Count == 1, $"stream: expected one provider call, got {_s.Backend.Requests.Count}");
+                Assert.True(_s.Backend.Requests.Count == expectedCalls, $"stream: expected {expectedCalls} provider call(s), got {_s.Backend.Requests.Count}");
                 await SecretAssert.NotLeakedAsync(Key, response, _s.Logs, _s.Activities);
                 continue;
             }
@@ -243,7 +244,7 @@ public sealed class ByokAskTests : IClassFixture<ByokScenario>, IAsyncLifetime
             Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
             Assert.Equal(expectedCode, (await Json(response)).GetProperty("code").GetString());
             Assert.Equal(retryAfter, response.Headers.TryGetValues("Retry-After", out var v) ? v.Single() : null);
-            Assert.True(_s.Backend.Requests.Count == 1, $"{name}: expected one provider call, got {_s.Backend.Requests.Count}"); // no single-pass fallback, no retry
+            Assert.True(_s.Backend.Requests.Count == expectedCalls, $"{name}: expected {expectedCalls} provider call(s), got {_s.Backend.Requests.Count}"); // no single-pass fallback; one retry on 5xx only (REL-2)
             await SecretAssert.NotLeakedAsync(Key, response, _s.Logs, _s.Activities);
         }
     }

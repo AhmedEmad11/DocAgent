@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace DocAgent.IntegrationTests;
 
@@ -13,7 +15,7 @@ public sealed class OpenApiTests(PostgresFixture postgres)
     private async Task<(JsonElement Doc, IReadOnlyDictionary<string, AuthDecision> Endpoints)> LoadAsync()
     {
         var cs = await TestDatabase.CreateAsync(postgres);
-        await using var factory = new DocAgentApiFactory(cs, new Dictionary<string, string?> { ["OpenApi:Enabled"] = "true", ["Documents:Ingestion:WorkerEnabled"] = "false" });
+        await using var factory = new DocAgentApiFactory(cs, new Dictionary<string, string?> { ["Documents:Ingestion:WorkerEnabled"] = "false" });
         using var client = factory.CreateClient();
         var response = await client.GetAsync("/openapi/v1.json");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -33,13 +35,20 @@ public sealed class OpenApiTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task The_document_is_not_served_outside_development_unless_enabled()
+    public async Task The_document_is_served_anonymously_and_read_only_outside_development()
     {
         var cs = await TestDatabase.CreateAsync(postgres);
         await using var factory = new DocAgentApiFactory(cs, new Dictionary<string, string?> { ["Documents:Ingestion:WorkerEnabled"] = "false" });
+        Assert.False(factory.Services.GetRequiredService<IHostEnvironment>().IsDevelopment());
         using var client = factory.CreateClient();
 
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/openapi/v1.json")).StatusCode);
+        var response = await client.GetAsync("/openapi/v1.json");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/openapi/v1.json", new StringContent("{}"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/scalar/v1")).StatusCode); // no interactive UI
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger")).StatusCode);
     }
 
     [Fact]

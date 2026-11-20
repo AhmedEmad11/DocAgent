@@ -34,7 +34,7 @@ public sealed class IngestionOptions
     /// <summary>
     /// Most text chunks one document may produce (about 1,600 characters each, so roughly 3 MB of text or 1,000 pages). Bounds
     /// storage and index size per document (SRS C2) and gives retrieval a defined worst case (PERF-2): with the BYOK limit of
-    /// 100 documents a user holds at most 100 x this many chunks. A longer document is marked Failed with a message to split it.
+    /// 100 documents a user holds at most 100 x this many chunks unless the total cap (Documents:Limits:*:MaxTotalChunks, 20,000 for BYOK) is lower. A longer document is marked Failed with a message to split it.
     /// </summary>
     public int MaxChunksPerDocument { get; set; } = 2000;
 
@@ -49,6 +49,12 @@ public sealed class DocumentLimit
 {
     public int MaxDocuments { get; set; }
     public long MaxFileBytes { get; set; }
+
+    /// <summary>
+    /// Most chunks across all of one user's documents (SRS DOC-3). Checked during ingestion, before embedding; a document that
+    /// would pass it is marked Failed. Deleting documents frees capacity. 0 = no total limit.
+    /// </summary>
+    public int MaxTotalChunks { get; set; }
 }
 
 public sealed class DocumentLimitsOptions
@@ -56,8 +62,8 @@ public sealed class DocumentLimitsOptions
     public const string SectionName = "Documents:Limits";
 
     /// <summary>Users without an LLM key (SRS D19).</summary>
-    public DocumentLimit Demo { get; set; } = new() { MaxDocuments = 3, MaxFileBytes = 5L * 1024 * 1024 };
+    public DocumentLimit Demo { get; set; } = new() { MaxDocuments = 3, MaxFileBytes = 5L * 1024 * 1024, MaxTotalChunks = 3000 };
 
     /// <summary>Users with their own LLM key (SRS D19).</summary>
-    public DocumentLimit Byok { get; set; } = new() { MaxDocuments = 100, MaxFileBytes = 25L * 1024 * 1024 };
+    public DocumentLimit Byok { get; set; } = new() { MaxDocuments = 100, MaxFileBytes = 25L * 1024 * 1024, MaxTotalChunks = 20000 };
 }

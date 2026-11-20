@@ -13,7 +13,7 @@ public static class LlmTest
     {
         var stub = new StubTransport(respond);
         transport = stub;
-        return new LlmHttpClients(_ => stub);
+        return new LlmHttpClients(_ => stub, TimeSpan.FromMilliseconds(1), TimeSpan.FromMilliseconds(50));
     }
 
     public static ProviderChatClientFactory Providers(LlmHttpClients clients) => new(clients, NullLoggerFactory.Instance);

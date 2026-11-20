@@ -13,7 +13,7 @@ namespace DocAgent.Api.OpenApi;
 /// OpenAPI document (SRS 4.1): bearer security scheme, a security requirement on every endpoint that needs a signed-in user,
 /// the Problem Details responses every endpoint can return (401/403/429/500), summaries for the Identity endpoints, and
 /// request examples for the main calls. Endpoint-specific results (200, 400, 404, ...) are declared where each endpoint is mapped.
-/// The document is served only in Development unless <c>OpenApi:Enabled</c> is true.
+/// The document is served anonymously, read-only, in every environment (decision after Phase 7); there is no interactive UI.
 /// </summary>
 public static class OpenApiSetup
 {

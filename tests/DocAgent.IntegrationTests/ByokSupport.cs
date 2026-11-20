@@ -196,7 +196,7 @@ public sealed class ProviderBackend
     public Action<IServiceCollection> Register(CapturingLoggerProvider? logs = null) => services =>
     {
         services.RemoveAll<LlmHttpClients>();
-        services.AddSingleton(new LlmHttpClients(_ => Transport));
+        services.AddSingleton(new LlmHttpClients(_ => Transport, TimeSpan.FromMilliseconds(1), TimeSpan.FromMilliseconds(50)));
         if (logs is not null)
         {
             services.AddLogging(b => b.AddProvider(logs));

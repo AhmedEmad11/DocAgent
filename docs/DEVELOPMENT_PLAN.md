@@ -181,8 +181,9 @@ Each phase ends with: tests passing, PROGRESS.md updated, and a short review wit
 ### Phase 7: Hardening
 - Security review (OWASP API Top 10, upload handling, key handling, tenant isolation).
 - Load test of retrieval at the max allowed chunks per user (PERF-2).
-- Resilience: retry/backoff policies (REL-2).
-- OpenAPI completeness and examples.
+- Resilience: retry/backoff policies (REL-2): one retry on 5xx/network errors for hosted providers, never on 429 (decision after Phase 7).
+- Total chunk cap per user (20,000 BYOK / 3,000 demo), enforced during ingestion and shown in `GET /api/v1/me` (decision after Phase 7).
+- OpenAPI completeness and examples; the document is served in all environments (anonymous, read-only), UI development-only.
 
 ### Phase 8: Deployment (Azure Container Apps + Neon)
 - Dockerfile (multi-stage, includes the ONNX model).

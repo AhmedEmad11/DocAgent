@@ -5,8 +5,8 @@ Updated with each commit. Newest entries at the top.
 ## Current status
 | Item | Value |
 |---|---|
-| Current phase | Phase 7 implemented, pending review (Phase 6 committed; live demo verification still pending the operator key) |
-| Next step | Phase 7 review, then Phase 8 (deployment; checkpoint) |
+| Current phase | Phase 7 done; follow-up decisions applied |
+| Next step | Phase 8 (deployment; checkpoint) |
 | Blockers | None |
 
 ## Phase checklist
@@ -24,6 +24,13 @@ Updated with each commit. Newest entries at the top.
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-21: Phase 7 follow-up: stakeholder decisions (build 0 warnings, 658 tests pass, 8 skipped)
+Phase 7 CI run 44834215668 was green (623 passed, 8 skipped). Three binding decisions applied on top of it:
+- **Provider retries (REL-2):** hosted provider calls (BYOK OpenRouter/Anthropic/OpenAI/Gemini and the demo route) get exactly one retry on a 5xx (incl. Anthropic 529) or a connection failure, after a short backoff (`Retry-After` honoured, capped at 2 s). Never on 429, other 4xx, timeouts or cancellation, and never once a response has started (only the exchange up to the response headers is retried). Implemented once, in `ProviderHttpHandler` (the SDK retries stay off; no logging handler, so the key stays out of logs). Demo: primary 5xx/network gets the one retry, then the existing fallback model; 429 goes straight to the fallback; the daily allowance is charged per question, so a retry never double-charges. SRS REL-2 reworded. Tests: `ProviderRetryTests` (503 then success, 503 twice, 529, connection failures, 429/400/401/402/403/404/422 not retried, Retry-After cap, cancellation), `DemoChatClientTests`, `DemoModeTests` (ordering, one question charged), `ByokAskTests` (5xx = 2 calls, rest 1).
+- **Total chunk cap per user (DOC-3):** 20,000 chunks across all documents for BYOK (`Documents:Limits:Byok:MaxTotalChunks`), 3,000 for demo (`Demo:MaxTotalChunks`: 15% of BYOK, room for one maximal 2,000-chunk document plus others, and a bound on the free-tier storage shared by all demo users; 3 x 2,000 = 6,000 would never bind below the per-document cap). Checked by the ingestion worker before embedding (early check) and again under the existing per-user advisory lock (`pg_advisory_xact_lock`) in the storing transaction, so two workers cannot both pass. Counted from the user's Ready documents. An over-cap document ends `Failed` with failureReason "Storage limit reached: N of LIMIT chunks used, and this document needs M more. Delete a document to free space." (same path as the per-document cap). `GET /api/v1/me` now returns `chunks: { used, limit }`. SRS DOC-3 and D19 updated. Tests: `ChunkLimitTests` (clean failure and no chunks or bytes left, other user unaffected, delete frees capacity, demo versus BYOK cap, two concurrent app instances cannot exceed the cap).
+- **OpenAPI in production:** `/openapi/v1.json` is served in every environment, anonymously and read-only (`OpenApi:Enabled` removed); there is no interactive UI. `EndpointInventory` lists it as a deliberate public endpoint; `OpenApiTests` checks it is served outside Development, rejects POST and has no UI route. SRS 4.1, README, SECURITY_REVIEW (S-28, new S-31, retry note) updated; DEVELOPMENT_PLAN Phase 7 lines adjusted.
+- Note: the gated PERF-2 test still seeds 200,000 chunks for one user; the cap now holds a BYOK user to 20,000, so that run is a worst case beyond what the service allows.
 
 ### 2026-11-21: Phase 7 implemented (build 0 warnings, 623 tests pass, 8 skipped: the 7 live/Ollama ones + the gated perf test)
 - **Security review:** [docs/SECURITY_REVIEW.md](SECURITY_REVIEW.md), 30 findings against OWASP API Top 10 (2023): 0 high, 9 medium, 8 low, 13 informational/verified. No cross-tenant defect found (all raw SQL, the worker, the agent tools, quota upsert and advisory lock reviewed). Fixed with tests: unguarded new endpoints (`EndpointInventory` + `HardeningTests`: fails for any endpoint without an explicit auth decision, and calls every protected endpoint anonymously and unconfirmed), 30 MB JSON bodies (now 256 KB, `Limits:MaxJsonBodyBytes`), parallel upload memory (per-user concurrency 2), unbounded concurrent ask/summary/compare per user (concurrency 4), unbounded chunks per document (`MaxChunksPerDocument` 2000), no security headers/HSTS/CORS/Server banner, OpenAPI incompleteness, SMTP hang, stuck `Running` jobs. Opt-in `ForwardedHeaders:Enabled` for the proxy case. Deferred to Phase 8: `AllowedHosts` (startup warning now), turning on forwarded headers, key ring, one replica.

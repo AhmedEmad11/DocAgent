@@ -64,6 +64,9 @@ public static class EndpointInventory
         // Probes (Azure Container Apps): status text only, no details.
         ["GET /health/ready"] = AuthDecision.Public,
         ["GET /health/live"] = AuthDecision.Public,
+
+        // The API description: public and read-only in every environment (no interactive UI).
+        ["GET /openapi/{documentName}.json"] = AuthDecision.Public,
     };
 
     /// <summary>"METHOD route-pattern" (route constraints removed) with the decision the endpoint's metadata actually carries.</summary>

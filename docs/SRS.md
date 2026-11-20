@@ -61,7 +61,7 @@ Explicitly excluded:
 | D16 | The whole stack must be free to run (excluding users' own BYOK costs). |
 | D17 | Demo mode requires sign-in; anonymous visitors cannot use it (OI-1). |
 | D18 | Demo limit: 10 questions per user per day (OI-2). |
-| D19 | Document limits: demo 3 documents of up to 5 MB each; BYOK 100 documents of up to 25 MB each (OI-3). |
+| D19 | Document limits: demo 3 documents of up to 5 MB each; BYOK 100 documents of up to 25 MB each (OI-3). Total chunks per user: demo 3,000, BYOK 20,000 (DOC-3). |
 | D20 | Agent limits: demo 4 tool calls / 60 s timeout; BYOK 10 tool calls / 120 s timeout (OI-4). |
 | D21 | External logins link automatically to an existing account with the same email, only when the provider reports the email as verified (OI-6). |
 | D22 | Email confirmation and password reset are in v1 (OI-7). Development sends to a local Mailpit email catcher; the production email provider is chosen before deployment (Phase 8). Gmail SMTP was dropped because app passwords are not available on the stakeholder's account. |
@@ -141,7 +141,7 @@ Priority: **M** = must have (v1), **S** = should have (v1 if time allows), **C**
 |---|---|---|
 | DOC-1 | Users can upload a PDF (text-based), .docx, .txt or .md file. | M |
 | DOC-2 | Unsupported or invalid files are rejected with a clear error (type checked by content, not only by extension). | M |
-| DOC-3 | Per-user limits are enforced: demo users max 3 documents, 5 MB per file; BYOK users max 100 documents, 25 MB per file. Values are configuration. If a user removes their key while above the demo limits, existing documents stay but new uploads are blocked until they are under the limit. | M |
+| DOC-3 | Per-user limits are enforced: demo users max 3 documents, 5 MB per file; BYOK users max 100 documents, 25 MB per file. A single document may produce at most 2,000 chunks (`Documents:Ingestion:MaxChunksPerDocument`). The total number of chunks across all of a user's documents is also capped: BYOK users 20,000, demo users 3,000 (`Documents:Limits:*:MaxTotalChunks`; demo is 15% of BYOK, enough for one maximal document or several ordinary ones, and bounds the shared free-tier storage). The total is checked during ingestion before embedding, race-safe per user; a document that would exceed it is marked `Failed` with "Storage limit reached: N of LIMIT chunks used". Deleting documents frees capacity; usage is reported as `chunks: {used, limit}` by `GET /api/v1/me`. Values are configuration. If a user removes their key while above the demo limits, existing documents stay but new uploads are blocked until they are under the limit. | M |
 | DOC-4 | Processing (extract → chunk → embed → store) runs in the background; the upload call returns immediately with a document ID and status. | M |
 | DOC-5 | Users can see each document's status: `Pending`, `Processing`, `Ready`, `Failed` (with reason). | M |
 | DOC-6 | Users can list their documents (name, type, size, page count, chunk count, status, upload date). | M |
@@ -198,7 +198,7 @@ Priority: **M** = must have (v1), **S** = should have (v1 if time allows), **C**
 ### 4.1 API
 - REST over HTTPS with JSON. File uploads use `multipart/form-data`.
 - Versioned routes (`/api/v1/...`).
-- OpenAPI document published; interactive docs available in development.
+- OpenAPI document published at `/openapi/v1.json` in every environment (anonymous, read-only); any interactive UI is available in development only.
 - Errors use RFC 9457 Problem Details.
 - Endpoint list: see the development plan, §API surface.
 
@@ -237,7 +237,7 @@ Priority: **M** = must have (v1), **S** = should have (v1 if time allows), **C**
 
 ### 5.3 Reliability
 - REL-1: A failed document job is marked `Failed` with a reason and can be retried by re-uploading.
-- REL-2: Transient provider errors (429/5xx) are retried with backoff a limited number of times.
+- REL-2: Hosted provider calls get one retry on 5xx (including Anthropic 529) and network/connection errors, after a short backoff (Retry-After honoured, capped at 2 s). 429 and other 4xx are never retried, nor is a response that has begun streaming. In demo mode the primary model is retried once on 5xx/network errors and then the second (fallback) model is used; a 429 goes straight to the second model. The local Ollama client retries connection failures and 502/503/504 a configured number of times.
 - REL-3: Background jobs that were interrupted by a restart are resumed or marked failed on startup.
 
 ### 5.4 Maintainability and portability

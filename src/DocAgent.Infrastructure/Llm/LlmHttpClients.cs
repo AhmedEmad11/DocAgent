@@ -21,11 +21,11 @@ public sealed class LlmHttpClients : IDisposable
     }
 
     /// <summary>Tests pass a stub transport.</summary>
-    public LlmHttpClients(Func<LlmProvider, HttpMessageHandler> transport)
+    public LlmHttpClients(Func<LlmProvider, HttpMessageHandler> transport, TimeSpan? retryDelay = null, TimeSpan? maxRetryDelay = null)
     {
         foreach (var provider in LlmProviders.All)
         {
-            _clients[provider] = new HttpClient(new ProviderHttpHandler(provider, transport(provider)))
+            _clients[provider] = new HttpClient(new ProviderHttpHandler(provider, transport(provider), retryDelay, maxRetryDelay))
             {
                 Timeout = Timeout.InfiniteTimeSpan,
             };

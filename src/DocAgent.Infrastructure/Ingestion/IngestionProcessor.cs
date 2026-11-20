@@ -21,6 +21,7 @@ public sealed class IngestionProcessor(
     IEmbeddingGenerator<string, Embedding<float>> embedder,
     TextChunker chunker,
     IOptions<IngestionOptions> options,
+    IOptions<DocumentLimitsOptions> limitOptions,
     ILogger<IngestionProcessor> logger)
 {
     /// <summary>Stored on documents whose PDF Arabic had to be reconstructed from reversed order (SRS DOC-11 / D31).</summary>
@@ -65,10 +66,21 @@ public sealed class IngestionProcessor(
                     $"The document is too long to index: it has more than {options.Value.MaxChunksPerDocument} text sections. Split it into smaller documents.");
             }
 
+            // Early check, before the embedding cost. Not race-safe on its own; StoreResultAsync repeats it under the user's lock.
+            var totalLimit = await TotalChunkLimitAsync(document.UserId, ct);
+            if (totalLimit > 0)
+            {
+                var used = await UsedChunksAsync(document.UserId, documentId, ct);
+                if (used + chunks.Count > totalLimit)
+                {
+                    throw new DocumentParseException(StorageLimitMessage(used, totalLimit, chunks.Count));
+                }
+            }
+
             var inputs = chunks.Select(c => EmbeddingOptions.PassagePrefix + c.Text).ToList();
             var embeddings = await embedder.GenerateAsync(inputs, cancellationToken: ct);
 
-            if (!await StoreResultAsync(job, document.UserId, chunks, embeddings, pageCount, arabicReordered ? ArabicReorderedNotice : null, ct))
+            if (!await StoreResultAsync(job, document.UserId, totalLimit, chunks, embeddings, pageCount, arabicReordered ? ArabicReorderedNotice : null, ct))
             {
                 return IngestionOutcome.DocumentGone;
             }
@@ -133,7 +145,7 @@ public sealed class IngestionProcessor(
     }
 
     private async Task<bool> StoreResultAsync(
-        ClaimedJob job, Guid userId, IReadOnlyList<TextChunk> chunks, GeneratedEmbeddings<Embedding<float>> embeddings, int? pageCount, string? extractionNotice, CancellationToken ct)
+        ClaimedJob job, Guid userId, int totalLimit, IReadOnlyList<TextChunk> chunks, GeneratedEmbeddings<Embedding<float>> embeddings, int? pageCount, string? extractionNotice, CancellationToken ct)
     {
         var documentId = job.DocumentId;
         var strategy = db.Database.CreateExecutionStrategy();
@@ -141,6 +153,18 @@ public sealed class IngestionProcessor(
         {
             db.ChangeTracker.Clear();
             await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+            if (totalLimit > 0)
+            {
+                // Same per-user advisory lock as the upload: documents of one user finish one after the other, so two of them
+                // cannot both pass the check and together exceed the total. Ready documents are only ever marked Ready below, under this lock.
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))", ct);
+                var used = await UsedChunksAsync(userId, documentId, ct);
+                if (used + chunks.Count > totalLimit)
+                {
+                    throw new DocumentParseException(StorageLimitMessage(used, totalLimit, chunks.Count)); // rolls back; the caller fails the document
+                }
+            }
 
             // A retried job may have left chunks behind; replace them.
             await db.Chunks.IgnoreQueryFilters().Where(c => c.DocumentId == documentId).ExecuteDeleteAsync(ct);
@@ -187,6 +211,22 @@ public sealed class IngestionProcessor(
             return true;
         });
     }
+
+    /// <summary>The user's total chunk cap: BYOK when a key is saved, else demo (the same rule as the upload limits).</summary>
+    private async Task<int> TotalChunkLimitAsync(Guid userId, CancellationToken ct)
+    {
+        var isByok = await db.UserLlmCredentials.IgnoreQueryFilters().AnyAsync(c => c.UserId == userId, ct);
+        return (isByok ? limitOptions.Value.Byok : limitOptions.Value.Demo).MaxTotalChunks;
+    }
+
+    private Task<int> UsedChunksAsync(Guid userId, Guid exceptDocumentId, CancellationToken ct) =>
+        db.Documents.IgnoreQueryFilters().AsNoTracking()
+            .Where(d => d.UserId == userId && d.Id != exceptDocumentId && d.Status == DocumentStatus.Ready)
+            .SumAsync(d => d.ChunkCount, ct);
+
+    private static string StorageLimitMessage(int used, int limit, int needed) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"Storage limit reached: {used:N0} of {limit:N0} chunks used, and this document needs {needed:N0} more. Delete a document to free space.");
 
     private async Task FailAsync(ClaimedJob job, string reason, CancellationToken ct, string? lastError = null)
     {

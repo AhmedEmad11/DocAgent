@@ -46,7 +46,7 @@ public static class DocumentEndpoints
                 "Send one file in a multipart/form-data field named 'file': PDF (text-based), Word (.docx), plain text (.txt) or Markdown (.md). "
                 + "The type is checked by content, not only by the extension. Returns 202 with the document id at once; extraction, chunking and embedding run in the "
                 + "background, so poll GET /api/v1/documents/{id} until status is Ready or Failed. Limits: demo accounts 3 documents of up to 5 MB, accounts with their own LLM key "
-                + "100 documents of up to 25 MB (413 when the file is too large, 409 at the document limit). At most 2 uploads per user at a time (429).");
+                + "100 documents of up to 25 MB (413 when the file is too large, 409 at the document limit). A document is also marked Failed when its chunks would exceed the account's total chunk limit (3,000 demo, 20,000 own key; see chunks in GET /api/v1/me). At most 2 uploads per user at a time (429).");
 
         group.MapGet("", async (AppDbContext db, CancellationToken ct) =>
             {

@@ -180,10 +180,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-if (app.Environment.IsDevelopment() || app.Configuration.GetValue("OpenApi:Enabled", false))
-{
-    app.MapOpenApi();
-}
+// The API description is public and read-only in every environment (it is the endpoint inventory; it holds no secrets).
+// There is no interactive UI; a try-it-out page would be Development-only.
+app.MapOpenApi().AllowAnonymous();
 
 if (app.Environment.IsDevelopment())
 {

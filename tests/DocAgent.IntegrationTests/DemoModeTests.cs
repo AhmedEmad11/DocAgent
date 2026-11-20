@@ -391,8 +391,25 @@ public sealed class DemoModeTests : IClassFixture<DemoScenario>, IAsyncLifetime
         Assert.Equal("demo", body.GetProperty("mode").GetString());
         Assert.Equal("OpenRouter", body.GetProperty("provider").GetString());
         Assert.Equal(Primary, ModelOf(_s.Backend.Requests[0]));
-        Assert.All(_s.Backend.Requests.Skip(1), r => Assert.Equal(Fallback, ModelOf(r))); // one retry, then the request stays on the fallback
-        Assert.Equal(1, await StoredCountAsync(_s.UserA.Id)); // answered: it counts
+        // 429: straight to the fallback. 503: the primary once more (REL-2), then the fallback; the request stays on the fallback.
+        var primaryCalls = status == HttpStatusCode.TooManyRequests ? 1 : 2;
+        Assert.All(_s.Backend.Requests.Take(primaryCalls), r => Assert.Equal(Primary, ModelOf(r)));
+        Assert.All(_s.Backend.Requests.Skip(primaryCalls), r => Assert.Equal(Fallback, ModelOf(r)));
+        Assert.Equal(1, await StoredCountAsync(_s.UserA.Id)); // answered: it counts once, however many HTTP calls it took
+    }
+
+    [Fact]
+    public async Task A_primary_that_fails_once_with_503_is_retried_on_the_primary_and_costs_one_question()
+    {
+        var failures = 0;
+        _s.Backend.Chat = Scripted(model => model == Primary && Interlocked.Increment(ref failures) == 1 ? ProviderBackend.Error(HttpStatusCode.ServiceUnavailable) : null);
+
+        var response = await Ask(_s.UserA);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(Primary, (await Json(response)).GetProperty("model").GetString()); // answered by the primary, no fallback
+        Assert.All(_s.Backend.Requests, r => Assert.Equal(Primary, ModelOf(r)));
+        Assert.Equal(1, await StoredCountAsync(_s.UserA.Id)); // the retry did not charge twice
     }
 
     [Fact]
@@ -406,7 +423,7 @@ public sealed class DemoModeTests : IClassFixture<DemoScenario>, IAsyncLifetime
         var problem = await Json(response);
         Assert.Equal("demo_unavailable", problem.GetProperty("code").GetString());
         Assert.Contains("add your own LLM API key", problem.GetProperty("detail").GetString());
-        Assert.Equal(2, _s.Backend.Requests.Count); // primary, fallback
+        Assert.Equal(4, _s.Backend.Requests.Count); // primary twice (one retry), fallback twice
         Assert.Equal(0, await StoredCountAsync(_s.UserA.Id));
         Assert.Equal(DemoScenario.DailyLimit, (await MeAsync(_s.UserA)).GetProperty("demo").GetProperty("remaining").GetInt32());
         await SecretAssert.NotLeakedAsync(DemoScenario.OperatorKey, response, _s.Logs, _s.Activities);

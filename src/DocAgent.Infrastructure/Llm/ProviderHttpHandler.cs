@@ -10,10 +10,18 @@ namespace DocAgent.Infrastructure.Llm;
 /// fixed message, so no response body or header (which can echo a key fragment) travels further (KEY-7, SEC-2).
 /// There is deliberately no logging handler and no resilience handler here: the HttpClient is created directly, so
 /// IHttpClientFactory header logging cannot see the Authorization / x-api-key / x-goog-api-key headers.
+/// This is also the single place where hosted calls are retried (SRS REL-2): exactly one retry after a 5xx (including
+/// Anthropic 529) or a connection failure, after a short backoff (Retry-After if present, at most 2 s). Never a 429, never
+/// another 4xx, never a timeout or cancellation. Only the exchange up to the response headers is retried, so a response
+/// that has begun streaming to the caller is never repeated. The SDK-level retries stay off (they would multiply this one).
+/// The demo route needs nothing more: primary retried once here, then DemoChatClient moves to the fallback model; a 429 is
+/// not retried here and goes straight to the fallback. The retry is below the quota charge, so it costs the user no extra question.
 /// </summary>
-public sealed partial class ProviderHttpHandler(LlmProvider provider, HttpMessageHandler inner) : DelegatingHandler(inner)
+public sealed partial class ProviderHttpHandler(LlmProvider provider, HttpMessageHandler inner, TimeSpan? retryDelay = null, TimeSpan? maxRetryDelay = null) : DelegatingHandler(inner)
 {
     private const int MaxBodyChars = 4096;
+    public static readonly TimeSpan DefaultRetryDelay = TimeSpan.FromMilliseconds(500);
+    public static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(2);
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -23,7 +31,30 @@ public sealed partial class ProviderHttpHandler(LlmProvider provider, HttpMessag
             throw new InvalidOperationException("Requests to this host are not allowed for this provider.");
         }
 
-        var response = await base.SendAsync(request, cancellationToken);
+        if (request.Content is not null)
+        {
+            await request.Content.LoadIntoBufferAsync(cancellationToken); // so the one retry can send the same body again
+        }
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await base.SendAsync(request, cancellationToken);
+        }
+        catch (HttpRequestException) when (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(retryDelay ?? DefaultRetryDelay, cancellationToken);
+            response = await base.SendAsync(request, cancellationToken); // a second failure surfaces as it is
+        }
+
+        if ((int)response.StatusCode >= 500)
+        {
+            var delay = Min(ParseRetryAfter(response) ?? retryDelay ?? DefaultRetryDelay, maxRetryDelay ?? MaxRetryDelay);
+            response.Dispose();
+            await Task.Delay(delay, cancellationToken);
+            response = await base.SendAsync(request, cancellationToken);
+        }
+
         if (response.IsSuccessStatusCode)
         {
             return response;
@@ -48,6 +79,8 @@ public sealed partial class ProviderHttpHandler(LlmProvider provider, HttpMessag
         response.Dispose();
         throw new LlmProviderException(Classify(status, body), status, retryAfter);
     }
+
+    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
     /// <summary>Maps a failed response to what the user can do about it. Provider quirks are listed in the SRS notes (PROGRESS.md).</summary>
     public static LlmFailureKind Classify(int status, string body)
