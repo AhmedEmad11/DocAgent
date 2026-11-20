@@ -146,6 +146,22 @@ namespace DocAgent.Infrastructure.Migrations
                     b.ToTable("Chunks");
                 });
 
+            modelBuilder.Entity("DocAgent.Core.Entities.DemoUsage", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "Day");
+
+                    b.ToTable("DemoUsages");
+                });
+
             modelBuilder.Entity("DocAgent.Core.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -451,6 +467,15 @@ namespace DocAgent.Infrastructure.Migrations
                     b.HasOne("DocAgent.Core.Entities.Document", null)
                         .WithMany()
                         .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DocAgent.Core.Entities.DemoUsage", b =>
+                {
+                    b.HasOne("DocAgent.Core.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

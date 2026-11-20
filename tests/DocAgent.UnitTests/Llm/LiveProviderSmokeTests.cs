@@ -88,3 +88,53 @@ public sealed class LiveProviderSmokeTests
         Assert.Equal(LlmFailureKind.InvalidKey, ex.Kind);
     }
 }
+
+/// <summary>Runs only when the operator's demo key is in DOCAGENT_LIVE_DEMO_OPENROUTER_KEY (optional DOCAGENT_LIVE_DEMO_MODEL).</summary>
+public sealed class LiveDemoFactAttribute : FactAttribute
+{
+    public LiveDemoFactAttribute()
+    {
+        if (string.IsNullOrWhiteSpace(LiveDemo.Key))
+        {
+            Skip = "Set DOCAGENT_LIVE_DEMO_OPENROUTER_KEY to run the live demo-model smoke test.";
+        }
+    }
+}
+
+public static class LiveDemo
+{
+    public static string? Key => Environment.GetEnvironmentVariable("DOCAGENT_LIVE_DEMO_OPENROUTER_KEY");
+
+    public static string[] Models =>
+        Environment.GetEnvironmentVariable("DOCAGENT_LIVE_DEMO_MODEL") is { Length: > 0 } m ? [m] : [DemoOptions.DefaultModel, DemoOptions.DefaultFallbackModel];
+}
+
+public sealed class LiveDemoSmokeTests
+{
+    /// <summary>The configured free demo models (primary and fallback) answer a tool-calling round trip on the operator's key. The key is never printed.</summary>
+    [LiveDemoFact]
+    public async Task Demo_models_answer_with_tool_calling()
+    {
+        var key = LiveDemo.Key!.Trim();
+        using var clients = new LlmHttpClients();
+        var factory = new ProviderChatClientFactory(clients, NullLoggerFactory.Instance);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+
+        foreach (var model in LiveDemo.Models)
+        {
+            var called = false;
+            var tool = AIFunctionFactory.Create(() =>
+            {
+                called = true;
+                return "The magic number is 4711.";
+            }, "get_magic_number", "Returns the magic number. Call it whenever asked for the magic number.");
+            using var client = factory.Create(LlmProvider.OpenRouter, model, key).AsBuilder().UseFunctionInvocation().Build();
+
+            var response = await client.GetResponseAsync(
+                "What is the magic number? Use the tool.", new ChatOptions { Tools = [tool], MaxOutputTokens = 300 }, cts.Token);
+
+            Assert.True(called, $"The demo model {model} did not call the tool.");
+            Assert.Contains("4711", response.Text);
+        }
+    }
+}

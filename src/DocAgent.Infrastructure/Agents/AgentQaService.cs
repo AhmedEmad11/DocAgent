@@ -150,7 +150,7 @@ public sealed class AgentQaService(
             toolCalls, sourceCount, citations.Count, verification.Removed, verification.Claims, state.Incomplete, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         activity?.SetTag("agent.incomplete", state.Incomplete);
         activity?.SetTag("agent.citations", citations.Count);
-        return new QaAnswer(answer, false, citations, route.Info, state.Incomplete, toolCalls, await NoticesAsync(citations, ct));
+        return new QaAnswer(answer, false, citations, route.Used, state.Incomplete, toolCalls, await NoticesAsync(citations, ct));
     }
 
     private QaAnswer Done(
@@ -161,7 +161,7 @@ public sealed class AgentQaService(
         _logger.LogInformation(
             "Agent: not found after {ToolCalls} tool calls, {Sources} sources, {ElapsedMs:F0} ms",
             state.ToolCalls, sourceCount, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-        return new QaAnswer(QaService.NotFoundMessage(question), true, [], route.Info, state.Incomplete, state.ToolCalls);
+        return new QaAnswer(QaService.NotFoundMessage(question), true, [], route.Used, state.Incomplete, state.ToolCalls);
     }
 
     private async Task<string> FinalWithoutToolsAsync(string question, SourceRegistry registry, LlmRoute route, CancellationToken ct)

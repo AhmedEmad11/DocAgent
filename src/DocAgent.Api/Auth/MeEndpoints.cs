@@ -1,5 +1,6 @@
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Data;
+using DocAgent.Infrastructure.Llm;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,13 +9,19 @@ namespace DocAgent.Api.Auth;
 public static class MeEndpoints
 {
     public sealed record MeResponse(
-        Guid Id, string? Email, bool EmailConfirmed, string[] ExternalLogins, bool HasLlmKey);
+        Guid Id, string? Email, bool EmailConfirmed, string[] ExternalLogins, bool HasLlmKey, DemoResponse? Demo);
+
+    /// <summary>
+    /// Present only while the user is served by the demo route (no saved key, demo configured): today's question allowance
+    /// (UTC day) and the third-party notice (PRIV-1).
+    /// </summary>
+    public sealed record DemoResponse(int Limit, int Used, int Remaining, DateTimeOffset ResetsAt, string PrivacyNotice);
 
     public static void MapMe(this IEndpointRouteBuilder app)
     {
         var me = app.MapGroup("/api/v1/me").RequireAuthorization();
 
-        me.MapGet("", async (HttpContext http, UserManager<AppUser> users, AppDbContext db, CancellationToken ct) =>
+        me.MapGet("", async (HttpContext http, UserManager<AppUser> users, AppDbContext db, INoKeyRouteProvider noKey, DemoQuotaService quota, CancellationToken ct) =>
         {
             var user = await users.GetUserAsync(http.User);
             if (user is null)
@@ -24,9 +31,16 @@ public static class MeEndpoints
 
             var logins = await users.GetLoginsAsync(user);
             var hasKey = await db.UserLlmCredentials.AnyAsync(ct); // tenant-filtered to this user
+            DemoResponse? demo = null;
+            if (!hasKey && noKey.IsDemo)
+            {
+                var status = await quota.GetStatusAsync(ct);
+                demo = new DemoResponse(status.Limit, status.Used, status.Remaining, status.ResetsAt, DemoNoKeyRouteProvider.PrivacyNotice);
+            }
+
             return Results.Ok(new MeResponse(
                 user.Id, user.Email, user.EmailConfirmed,
-                logins.Select(l => l.LoginProvider).Order().ToArray(), hasKey));
+                logins.Select(l => l.LoginProvider).Order().ToArray(), hasKey, demo));
         });
 
         // AUTH-8: removing the user cascades (in the database) to documents, chunks, jobs, credential and codes.

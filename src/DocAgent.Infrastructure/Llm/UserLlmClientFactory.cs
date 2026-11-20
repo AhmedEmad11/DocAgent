@@ -9,7 +9,7 @@ namespace DocAgent.Infrastructure.Llm;
 /// <summary>
 /// Chooses the route per request (SRS KEY-6): the signed-in user's saved key gives a BYOK route with the
 /// <c>Agent:Limits:Byok</c> caps; without a key the <see cref="INoKeyRouteProvider"/> decides (Ollama in development,
-/// otherwise a 403 until Phase 6 adds the demo route). Scoped: the saved key is read once per request.
+/// the OpenRouter demo elsewhere, or a 403 with <c>Llm:NoKeyRoute=None</c>). Scoped: the saved key is read once per request.
 /// </summary>
 public sealed class UserLlmClientFactory(
     AppDbContext db,

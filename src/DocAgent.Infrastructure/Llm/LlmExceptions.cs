@@ -1,7 +1,7 @@
 namespace DocAgent.Infrastructure.Llm;
 
 /// <summary>Why a request to the user's LLM route failed in a way the user can act on (SRS KEY-7).</summary>
-public enum LlmFailureKind { InvalidKey, NoCredit, RateLimited, Unavailable, UnknownModel, Rejected, KeyRequired, KeyUnreadable }
+public enum LlmFailureKind { InvalidKey, NoCredit, RateLimited, Unavailable, UnknownModel, Rejected, KeyRequired, KeyUnreadable, DemoQuotaExceeded, DemoUnavailable, DemoRateLimited }
 
 /// <summary>
 /// Base of the errors that the API turns into specific Problem Details. Messages are fixed texts: they never carry the
@@ -49,8 +49,33 @@ public sealed class LlmProviderException(LlmFailureKind kind, int? statusCode = 
 
 /// <summary>The user has no saved key and no fallback route is available for this environment.</summary>
 public sealed class NoLlmKeyException()
-    : LlmAccessException(LlmFailureKind.KeyRequired, "Add your own LLM API key first (PUT /api/v1/me/llm-key). The shared demo model is not available yet.");
+    : LlmAccessException(LlmFailureKind.KeyRequired, "Add your own LLM API key first (PUT /api/v1/me/llm-key). The shared demo model is not available in this deployment.");
 
 /// <summary>The saved key cannot be decrypted (for example the key ring changed); the user has to enter it again.</summary>
 public sealed class StoredLlmKeyUnreadableException()
     : LlmAccessException(LlmFailureKind.KeyUnreadable, "Your saved API key can no longer be read. Save it again (PUT /api/v1/me/llm-key).");
+
+/// <summary>The user has used all demo questions of the day (SRS DEMO-2, DEMO-5).</summary>
+public sealed class DemoQuotaExceededException(int limit, DateTimeOffset resetsAt, TimeSpan retryAfter)
+    : LlmAccessException(LlmFailureKind.DemoQuotaExceeded, MessageFor(limit, resetsAt), retryAfter)
+{
+    public int Limit { get; } = limit;
+
+    public DateTimeOffset ResetsAt { get; } = resetsAt;
+
+    public static string MessageFor(int limit, DateTimeOffset resetsAt) =>
+        $"You have used all {limit} demo questions for today. The limit resets at {resetsAt:yyyy-MM-dd HH:mm} UTC. "
+        + "To keep going now, add your own LLM API key (PUT /api/v1/me/llm-key): your own key has no demo limit.";
+}
+
+/// <summary>
+/// The demo models could not serve the request: both are down or rate limited, or the operator's key or model setting is wrong
+/// (that case is logged as an error; the user only sees a generic message, SEC-2).
+/// </summary>
+public sealed class DemoUnavailableException(bool rateLimited, TimeSpan? retryAfter = null)
+    : LlmAccessException(
+        rateLimited ? LlmFailureKind.DemoRateLimited : LlmFailureKind.DemoUnavailable,
+        rateLimited
+            ? "The free demo models are busy right now. Try again in a little while, or add your own LLM API key (PUT /api/v1/me/llm-key) to avoid the shared limits."
+            : "The demo is temporarily unavailable. Try again later, or add your own LLM API key (PUT /api/v1/me/llm-key) to use your own provider.",
+        retryAfter);

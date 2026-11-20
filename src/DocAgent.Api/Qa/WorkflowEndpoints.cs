@@ -118,7 +118,7 @@ public static class WorkflowEndpoints
             }
 
             return Results.Ok(AskEndpoints.AskResponse.From(
-                new QaAnswer(answer, false, citations, route.Info, result.Incomplete, 0, notices)));
+                new QaAnswer(answer, false, citations, route.Used, result.Incomplete, 0, notices)));
         }
         catch (LlmAccessException ex)
         {

@@ -37,7 +37,7 @@ public sealed class AgentOptions
 
 public sealed class AgentLimitsSet
 {
-    /// <summary>Until demo and BYOK routes exist (Phases 5-6) the development route uses the BYOK values.</summary>
+    /// <summary>The local development route (Ollama) has its own caps; BYOK and demo routes use their sets.</summary>
     public AgentLimitsOptions Development { get; set; } = new() { MaxToolCalls = 10, TimeoutSeconds = 120 };
 
     public AgentLimitsOptions Demo { get; set; } = new() { MaxToolCalls = 4, TimeoutSeconds = 60 };

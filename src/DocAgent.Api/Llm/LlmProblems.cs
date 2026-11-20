@@ -24,6 +24,9 @@ public static class LlmProblems
             LlmFailureKind.UnknownModel => new(rejectedStatus, "Unknown model", "llm_model_unknown", ex.Message, null),
             LlmFailureKind.KeyRequired => new(StatusCodes.Status403Forbidden, "LLM key required", "llm_key_required", ex.Message, null),
             LlmFailureKind.KeyUnreadable => new(StatusCodes.Status409Conflict, "Saved LLM key unreadable", "llm_key_unreadable", ex.Message, null),
+            LlmFailureKind.DemoQuotaExceeded => new(StatusCodes.Status429TooManyRequests, "Daily demo limit reached", "demo_quota_exceeded", ex.Message, ex.RetryAfter),
+            LlmFailureKind.DemoRateLimited => new(StatusCodes.Status429TooManyRequests, "Demo models busy", "demo_rate_limited", ex.Message, ex.RetryAfter),
+            LlmFailureKind.DemoUnavailable => new(StatusCodes.Status503ServiceUnavailable, "Demo unavailable", "demo_unavailable", ex.Message, null),
             _ => new(StatusCodes.Status502BadGateway, "LLM provider rejected the request", "llm_request_rejected", ex.Message, null),
         };
     }
@@ -31,7 +34,10 @@ public static class LlmProblems
     public static IResult ToResult(LlmAccessException ex, bool onSave = false)
     {
         var m = Map(ex, onSave);
-        var result = ProblemResults.Coded(m.Status, m.Title, m.Detail, m.Code);
+        var extra = ex is DemoQuotaExceededException quota
+            ? new Dictionary<string, object?> { ["limit"] = quota.Limit, ["resetsAt"] = quota.ResetsAt }
+            : null;
+        var result = ProblemResults.Coded(m.Status, m.Title, m.Detail, m.Code, extra);
         return m.RetryAfter is { } retry ? new WithRetryAfter(result, retry) : result;
     }
 

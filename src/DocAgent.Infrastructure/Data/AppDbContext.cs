@@ -20,6 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     public DbSet<IngestionJob> IngestionJobs => Set<IngestionJob>();
     public DbSet<DocumentUpload> DocumentUploads => Set<DocumentUpload>();
     public DbSet<UserLlmCredential> UserLlmCredentials => Set<UserLlmCredential>();
+    public DbSet<DemoUsage> DemoUsages => Set<DemoUsage>();
     public DbSet<ExternalLoginCode> ExternalLoginCodes => Set<ExternalLoginCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -81,6 +82,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
             e.Property(x => x.Model).HasMaxLength(256);
             e.Property(x => x.KeyLast4).HasMaxLength(8);
             e.HasOne<AppUser>().WithOne().HasForeignKey<UserLlmCredential>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasQueryFilter(x => x.UserId == CurrentUserId);
+        });
+
+        modelBuilder.Entity<DemoUsage>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.Day });
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
             e.HasQueryFilter(x => x.UserId == CurrentUserId);
         });
 

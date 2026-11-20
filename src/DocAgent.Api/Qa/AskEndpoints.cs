@@ -22,7 +22,7 @@ public static class AskEndpoints
 
     /// <summary>
     /// Shared by /ask, /ask/stream, the summary and the comparison. <c>Incomplete</c>: a limit was reached and the answer may
-    /// be incomplete (QA-11). <c>ToolCalls</c>: tool calls the agent made. <c>Notices</c>: extraction notices (DOC-11) of the cited documents.
+    /// be incomplete (QA-11). <c>ToolCalls</c>: tool calls the agent made. <c>Notices</c>: extraction notices (DOC-11) of the cited documents; demo answers start with the privacy notice (PRIV-1).
     /// </summary>
     public sealed record AskResponse(
         string Answer, bool NotFound, IReadOnlyList<CitationResponse> Citations, string Mode, string Provider, string Model,
@@ -32,7 +32,11 @@ public static class AskEndpoints
             result.Answer, result.NotFound,
             result.Citations.Select(c => new CitationResponse(c.Index, c.DocumentId, c.FileName, c.PageNumber, c.Section, c.Quote)).ToList(),
             result.Route.Mode, result.Route.Provider, result.Route.Model,
-            result.Incomplete, result.ToolCalls, result.Notices ?? []);
+            result.Incomplete, result.ToolCalls, WithPrivacyNotice(result.Route.Mode, result.Notices));
+
+        /// <summary>PRIV-1: demo answers always carry the third-party notice, first.</summary>
+        private static IReadOnlyList<string> WithPrivacyNotice(string mode, IReadOnlyList<string>? notices) =>
+            mode == "demo" ? [DemoNoKeyRouteProvider.PrivacyNotice, .. notices ?? []] : notices ?? [];
     }
 
     public static void MapAsk(this IEndpointRouteBuilder app)

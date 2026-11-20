@@ -108,3 +108,20 @@ Authorization: Bearer {{accessToken}}
 ### Remove the key (204)
 DELETE {{DocAgent.Api_HostAddress}}/api/v1/me/llm-key
 Authorization: Bearer {{accessToken}}
+
+### ---- Demo mode (Phase 6) ----
+# Users without a saved key are served by the free OpenRouter demo model on the operator's key (outside Development, or with
+# Llm:NoKeyRoute=Demo). Operator setup (never commit the key):
+#   dotnet user-secrets set "Llm:Demo:OpenRouterApiKey" "<key>" --project src/DocAgent.Api
+
+### Demo allowance: "demo": { limit, used, remaining, resetsAt (next UTC midnight), privacyNotice }; null when you have a key
+GET {{DocAgent.Api_HostAddress}}/api/v1/me
+Authorization: Bearer {{accessToken}}
+
+### Ask as a demo user: mode "demo", provider "OpenRouter", the model that answered, notices[0] = third-party privacy notice
+# 429 demo_quota_exceeded (+ Retry-After, limit, resetsAt) after 10 questions a day; 429 demo_rate_limited; 503 demo_unavailable
+POST {{DocAgent.Api_HostAddress}}/api/v1/ask
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "question": "What does the contract say about notice periods?" }

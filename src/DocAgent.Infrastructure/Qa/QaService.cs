@@ -69,7 +69,7 @@ public sealed class QaService(
         {
             // Nothing relevant enough: answer without spending an LLM call (SRS QA-9).
             logger.LogInformation("Q&A: no source passed the relevance threshold; model not called");
-            return new QaAnswer(NotFoundMessage(question), true, [], route.Info);
+            return new QaAnswer(NotFoundMessage(question), true, [], route.Used);
         }
 
         var options = route.Options?.Clone() ?? new ChatOptions();
@@ -98,7 +98,7 @@ public sealed class QaService(
         if (string.IsNullOrEmpty(answerText))
         {
             logger.LogWarning("Q&A: the model returned an empty answer");
-            return new QaAnswer(NotFoundMessage(question), true, [], route.Info);
+            return new QaAnswer(NotFoundMessage(question), true, [], route.Used);
         }
 
         var parsed = CitationParser.Parse(answerText, sources.Count);
@@ -113,7 +113,7 @@ public sealed class QaService(
             "Q&A answered: {Sources} sources, {Citations} citations, notFound={NotFound}, {InputTokens} input / {OutputTokens} output tokens, {ElapsedMs:F0} ms",
             sources.Count, citations.Count, reply.NotFound, response.Usage?.InputTokenCount, response.Usage?.OutputTokenCount,
             Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-        return new QaAnswer(parsed.Answer, reply.NotFound, citations, route.Info);
+        return new QaAnswer(parsed.Answer, reply.NotFound, citations, route.Used);
     }
 
     public static QaCitation ToCitation(int index, RetrievedChunk source, string question, string answer, int maxChars)

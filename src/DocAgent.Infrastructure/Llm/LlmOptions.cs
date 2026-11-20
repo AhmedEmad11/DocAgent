@@ -8,6 +8,27 @@ public sealed class LlmOptions
     public string Provider { get; set; } = "Ollama";
 
     public OllamaOptions Ollama { get; set; } = new();
+
+    public DemoOptions Demo { get; set; } = new();
+}
+
+/// <summary>The demo route: free OpenRouter models on the operator's key (SRS DEMO-1..6). Model IDs are configuration (DEMO-6).</summary>
+public sealed class DemoOptions
+{
+    public const string DefaultModel = "google/gemma-4-31b-it:free";
+    public const string DefaultFallbackModel = "google/gemma-4-26b-a4b-it:free";
+
+    /// <summary>First choice. Chosen from OpenRouter's free tool-capable models (see PROGRESS.md).</summary>
+    public string Model { get; set; } = DefaultModel;
+
+    /// <summary>Tried within the same request when the first model is rate limited or unavailable (DEMO-4). Empty = no fallback.</summary>
+    public string? FallbackModel { get; set; } = DefaultFallbackModel;
+
+    /// <summary>The operator's OpenRouter key. A secret: user-secrets in development, a Container Apps secret in production. Never logged or returned.</summary>
+    public string? OpenRouterApiKey { get; set; }
+
+    /// <summary>Questions per user per UTC day (DEMO-2); summaries and comparisons count as one each.</summary>
+    public int DailyQuestionLimit { get; set; } = 10;
 }
 
 public sealed class OllamaOptions
