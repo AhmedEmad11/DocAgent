@@ -486,3 +486,15 @@ graphify-out/
 
 # Embedding model files (downloaded by scripts/download-models.sh)
 /models/
+
+# Frontend (web/)
+/web/node_modules/
+/web/.next/
+/web/out/
+/web/next-env.d.ts
+/web/*.tsbuildinfo
+/web/.env*
+!/web/.env.example
+/web/playwright-report/
+/web/test-results/
+/web/coverage/

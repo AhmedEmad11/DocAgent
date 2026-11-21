@@ -1,0 +1,63 @@
+{
+  "Meta": {
+    "title": "DocAgent",
+    "titleTemplate": "%s | DocAgent",
+    "description": "Ask questions about your own documents and get cited answers."
+  },
+  "Common": {
+    "wordmark": "DocAgent",
+    "skipToContent": "Skip to content",
+    "comingSoon": "Coming soon"
+  },
+  "Nav": {
+    "label": "Main",
+    "documents": "Documents",
+    "ask": "Ask",
+    "settings": "Settings",
+    "account": "Account"
+  },
+  "Language": {
+    "label": "Language",
+    "switchTo": "Switch language to {name}",
+    "en": "English",
+    "ar": "العربية"
+  },
+  "Theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "current": "Theme: {mode}. Activate to change."
+  },
+  "Footer": {
+    "privacy": "Privacy"
+  },
+  "Landing": {
+    "title": "Ask your documents, get cited answers",
+    "description": "DocAgent reads the PDF, Word, text and Markdown files you upload and answers your questions with quotes and page references, so you can check every claim. It can also summarise a document or compare two.",
+    "signInRequired": "You need an account to use DocAgent. Sign-in and registration are coming soon.",
+    "signIn": "Sign in",
+    "register": "Create account",
+    "privacyLink": "Read the privacy notice"
+  },
+  "Privacy": {
+    "title": "Privacy",
+    "draftNotice": "This is a placeholder. The final privacy text is added with the sign-in work.",
+    "dataTitle": "What is sent where",
+    "demo": "In demo mode, your questions and the matching document excerpts are sent to a free third-party model that may log them.",
+    "byok": "If you add your own provider key, your questions and excerpts go to the provider you choose.",
+    "originals": "Original files are not kept after they are processed.",
+    "cookiesTitle": "Cookies and browser storage",
+    "cookies": "The site uses a session cookie once you sign in and a language cookie. Your theme choice is kept in your browser's local storage. There is no analytics and no tracking."
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist or has moved.",
+    "home": "Back to the start page"
+  },
+  "Error": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. You can try again.",
+    "retry": "Try again"
+  }
+}

@@ -25,6 +25,15 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-21: Phase 9.0 (frontend skeleton + CI) done
+- SRS §10 and the Phase 9 plan approved by the stakeholder (commit 77a0ce4).
+- `web/`: Next.js 16.4.6 App Router + TypeScript, React 19.3.1, Tailwind 4.3.5, shadcn/ui config (neutral, one blue accent, text wordmark), next-intl 4.15.3 with `/en` and `/ar` (`dir="rtl"`, Noto Sans Arabic, Western digits), dark mode following the system with a toggle, app shell (skip link, header, disabled nav placeholders, footer), landing, privacy, localized 404 and error pages. Security headers and a per-request CSP nonce (`src/proxy.ts`), lazy zod env schema (not used until 9.1). Exact pins + lockfile, Node 24 (`.nvmrc`).
+- Deviation: TypeScript 6.0.3 instead of 7.0.2 (risk R9.8: eslint-config-next/typescript-eslint crash on TS 7). `@types/node` 24.19.2.
+- Tests: 18 Vitest unit tests; 11 Playwright e2e (lang/dir, axe in light/dark and both locales, 320 px, locale switch, Accept-Language redirect, 404, theme persistence, security headers/CSP). `npm audit`: 0 vulnerabilities.
+- CI: new `web-changes` path filter + `web` job (lint, i18n parity, typecheck, unit, build, Playwright chromium, blocking `npm audit --omit=dev --audit-level=high`); Dependabot for npm (`/web`) and GitHub Actions.
+- Vercel Hobby limits re-checked: 300 s max duration (ask/summary/compare fit), 4.5 MB request body (upload ticket D40 confirmed needed).
+- Arabic strings are a first draft; stakeholder review planned at 9.1/9.7 (OI-22).
+
 ### 2026-11-21: Phase 9 (frontend) requirements and plan drafted; API hosting moved to SnapDeploy
 - SRS §10 "Frontend (Phase 9)": decisions D33–D43, 70 functional (UI-AUTH/DOC/QA/SUM/KEY/DEMO/ACC/GEN) and 39 non-functional requirements (UI-SEC/A11Y/I18N/PERF/BRW/OPS), API error-code → message table, 10 acceptance criteria. Open issues OI-8..OI-23 resolved by the stakeholder: upload ticket with CORS only on the upload endpoint (D40), trusted `X-Client-IP` + shared secret (D41), `web/` folder in this repo with a neutral look (D42), all other recommended defaults accepted.
 - DEVELOPMENT_PLAN Phase 9: sub-phases 9.0–9.7 (checkpoints 9.1 and 9.7), pinned versions (Next.js 16.4.6, React 19.3.1, Tailwind 4.3.5, next-intl 4.15.3, Vitest 5.1.1, Playwright 1.65.1, ...), API-side changes A1–A8, risks R9.1–R9.15.
