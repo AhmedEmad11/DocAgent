@@ -26,4 +26,7 @@ public sealed class EmbeddingOptions
     public int MaxSequenceLength { get; set; } = 512;
 
     public int BatchSize { get; set; } = 16;
+
+    /// <summary>ONNX Runtime intra-op threads. 0 = the CPU count the process may use (honours container CPU limits).</summary>
+    public int IntraOpThreads { get; set; }
 }

@@ -34,7 +34,7 @@ public static class IngestionServiceCollectionExtensions
             var embedding = sp.GetRequiredService<IOptions<EmbeddingOptions>>().Value;
             return new OnnxEmbeddingGenerator(
                 sp.GetRequiredService<ModelDirectory>().Path, sp.GetRequiredService<EmbeddingTokenizer>(),
-                embedding.MaxSequenceLength, embedding.BatchSize);
+                embedding.MaxSequenceLength, embedding.BatchSize, embedding.IntraOpThreads);
         });
         services.AddSingleton(sp => new TextChunker(sp.GetRequiredService<ITokenCounter>(), sp.GetRequiredService<IOptions<ChunkingOptions>>().Value));
 

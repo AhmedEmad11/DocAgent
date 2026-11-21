@@ -14,7 +14,8 @@ public sealed class DocAgentApiFactory(
     string connectionString,
     IDictionary<string, string?>? settings = null,
     bool raiseRateLimit = true,
-    Action<IServiceCollection>? configureServices = null) : WebApplicationFactory<Program>
+    Action<IServiceCollection>? configureServices = null,
+    string environment = "Testing") : WebApplicationFactory<Program>
 {
     public const string AllowedReturnUrl = "http://localhost:3000";
 
@@ -22,7 +23,7 @@ public sealed class DocAgentApiFactory(
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(environment);
         builder.UseSetting("ConnectionStrings:docagentdb", connectionString);
         builder.UseSetting("Authentication:External:AllowedReturnUrls:0", AllowedReturnUrl);
         if (raiseRateLimit)

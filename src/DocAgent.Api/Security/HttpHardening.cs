@@ -123,6 +123,19 @@ public static class HttpHardening
         return any ? app.UseCors(CorsPolicy) : app;
     }
 
+    // ---- host names ----
+
+    /// <summary>Production only: <c>AllowedHosts</c> must name the public host(s); '*' or empty would let a forged Host header into emailed links.</summary>
+    public static void RequireAllowedHosts(IConfiguration configuration)
+    {
+        var hosts = (configuration["AllowedHosts"] ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (hosts.Length == 0 || hosts.Any(h => h.Contains('*')))
+        {
+            throw new InvalidOperationException(
+                "AllowedHosts is '*' or empty. In production set AllowedHosts to the public host name(s) of this API (';' separated), e.g. the Container App's FQDN.");
+        }
+    }
+
     // ---- reverse proxy ----
 
     /// <summary>

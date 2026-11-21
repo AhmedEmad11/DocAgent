@@ -38,3 +38,21 @@ jobs:
       # Integration tests use Testcontainers; Docker is available on ubuntu-latest runners.
       - name: Test
         run: dotnet test DocAgent.slnx --no-build --configuration Release --logger "console;verbosity=normal"
+
+  # Phase 8: the infrastructure template must at least compile. No Azure login or subscription is needed for this.
+  infra-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compile Bicep
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
+  # Phase 8: the container image must build (model download + SHA check, publish). Not pushed anywhere.
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build --tag docagent-api:ci .

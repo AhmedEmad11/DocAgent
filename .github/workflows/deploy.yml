@@ -1,0 +1,160 @@
+name: Deploy
+
+# Builds the image, applies the database migrations, deploys to Azure Container Apps (Phase 8, docs/DEPLOYMENT.md).
+# Runs after CI succeeded on main, or by hand. Until the Azure/Neon settings exist it builds the image and stops cleanly
+# (the `configured` job reports what is missing), so the repository stays green before the Azure account exists.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image-tag:
+        description: "Existing image tag to (re)deploy, e.g. a commit SHA. Empty = build the current commit."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer run waits instead of cancelling a half-finished deploy.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/docagent-api
+
+jobs:
+  configured:
+    # Only after a green CI run of a *push* to main (never a pull request: a fork's branch can be called "main"), or by hand.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+    steps:
+      - id: check
+        env:
+          # Secrets are not available in `if:` expressions, so they are tested here (values are never printed).
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: |
+          missing=""
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_RESOURCE_GROUP NEON_CONNECTION_STRING; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deploy skipped::Not configured yet, missing:$missing. See docs/DEPLOYMENT.md."
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  image:
+    needs: configured
+    # Nothing to build when no deployment is configured: the image is only useful to deploy.
+    if: needs.configured.outputs.deploy == 'true' && github.event.inputs.image-tag == ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # For workflow_run the default checkout is the default branch head; pin to the commit CI tested.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.event.workflow_run.head_sha || github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: [configured, image]
+    # `image` is skipped when a tag was given; run unless it failed.
+    if: always() && needs.configured.outputs.deploy == 'true' && needs.image.result != 'failure' && needs.image.result != 'cancelled'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+      id-token: write # OIDC token for azure/login (no stored Azure password)
+    env:
+      TAG: ${{ github.event.inputs.image-tag || github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Migrations first, with the image that is about to be deployed: the new revision never meets an old schema.
+      # (Package visibility: the first push creates a private package; make it public once, see docs/DEPLOYMENT.md.)
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply database migrations (Neon)
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: |
+          docker run --rm -e ConnectionStrings__docagentdb="$NEON_CONNECTION_STRING" "$IMAGE:$TAG" --migrate
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure and app (Bicep)
+        id: bicep
+        env:
+          DOCAGENT_IMAGE: ${{ env.IMAGE }}:${{ env.TAG }}
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          DP_CERT_PFX_BASE64: ${{ secrets.DP_CERT_PFX_BASE64 }}
+          DP_CERT_PASSWORD: ${{ secrets.DP_CERT_PASSWORD }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM_ADDRESS: ${{ vars.EMAIL_FROM_ADDRESS }}
+          OAUTH_GOOGLE_CLIENT_ID: ${{ vars.OAUTH_GOOGLE_CLIENT_ID }}
+          OAUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.OAUTH_GOOGLE_CLIENT_SECRET }}
+          OAUTH_GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
+          OAUTH_GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          url=$(az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --template-file infra/main.bicep \
+            --parameters infra/main.bicepparam \
+            --query properties.outputs.url.value -o tsv)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed $DOCAGENT_IMAGE to $url" >> "$GITHUB_STEP_SUMMARY"
+
+      # Wakes the app (scale to zero) and checks liveness and the database through the public URL.
+      - name: Smoke test
+        run: |
+          url="${{ steps.bicep.outputs.url }}"
+          curl --fail --silent --show-error --retry 12 --retry-delay 10 --retry-all-errors --max-time 30 "$url/health/live"
+          echo
+          curl --fail --silent --show-error --retry 6 --retry-delay 10 --retry-all-errors --max-time 30 "$url/health/ready"
+          echo

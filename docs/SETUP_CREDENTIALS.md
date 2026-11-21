@@ -10,9 +10,9 @@ Phase 1 needs two sets of credentials:
 **Rules for secrets**
 - Store them only with `dotnet user-secrets` (commands below). They are saved in `~/.microsoft/usersecrets/`, outside the repository.
 - Never commit them, and do not paste them into the chat. Run the commands yourself, then tell Claude "credentials are set".
-- These are **development** credentials. Production gets separate ones in Phase 8 (different callback URLs, stored as Azure Container Apps secrets).
+- These are **development** credentials. Production gets separate ones (different callback URLs on the Container App's URL, stored as GitHub secrets and Azure Container Apps secrets): see [DEPLOYMENT.md](DEPLOYMENT.md), section 4, step 2. All other production credentials (Azure, Neon, Brevo, OpenRouter, Data Protection certificate) are described there too.
 
-Email needs **no credentials** in development: the AppHost runs **Mailpit**, a local email catcher, and every confirmation/reset email shows up in its web UI (the link appears in the Aspire dashboard). The production email provider is chosen in Phase 8.
+Email needs **no credentials** in development: the AppHost runs **Mailpit**, a local email catcher, and every confirmation/reset email shows up in its web UI (the link appears in the Aspire dashboard). In production, email goes through Brevo SMTP (see [DEPLOYMENT.md](DEPLOYMENT.md), section 2.5).
 
 Development API address (from `src/DocAgent.Api/Properties/launchSettings.json`): `http://localhost:5248`
 

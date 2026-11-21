@@ -1,5 +1,6 @@
 using DocAgent.Core.Abstractions;
 using DocAgent.Core.Entities;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace DocAgent.Infrastructure.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? currentUser = null)
-    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options)
+    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
 {
     /// <summary>
     /// Read by the global query filters. EF re-evaluates it per query on the context instance,
@@ -22,6 +23,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentUser? 
     public DbSet<UserLlmCredential> UserLlmCredentials => Set<UserLlmCredential>();
     public DbSet<DemoUsage> DemoUsages => Set<DemoUsage>();
     public DbSet<ExternalLoginCode> ExternalLoginCodes => Set<ExternalLoginCode>();
+
+    /// <summary>The Data Protection key ring when it is kept in the database (production, Phase 8). No tenant column and no query filter: keys belong to the application.</summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

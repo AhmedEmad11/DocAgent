@@ -5,8 +5,8 @@ Updated with each commit. Newest entries at the top.
 ## Current status
 | Item | Value |
 |---|---|
-| Current phase | Phase 7 done; follow-up decisions applied |
-| Next step | Phase 8 (deployment; checkpoint) |
+| Current phase | Phase 8: repo-side ready, waiting for Azure account |
+| Next step | User creates Azure account, then cloud deploy ([docs/DEPLOYMENT.md](DEPLOYMENT.md)), then acceptance check (checkpoint) |
 | Blockers | None |
 
 ## Phase checklist
@@ -20,10 +20,24 @@ Updated with each commit. Newest entries at the top.
 - [x] Phase 5: BYOK providers and key management (2026-11-12, pending checkpoint review; mocked HTTP only, no live provider verification)
 - [x] Phase 6: Demo mode (2026-11-21, implemented, pending review; mocked HTTP only, demo NOT verified live)
 - [x] Phase 7: Hardening (2026-11-21, implemented, pending review)
-- [ ] Phase 8: Deployment
+- [ ] Phase 8: Deployment (repo side prepared 2026-11-21; nothing deployed, no cloud call made)
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-21: Phase 8 (repo side) prepared (build 0 warnings, 671 tests pass, 8 skipped)
+Follows the Phase 7 follow-up commit 8b64ca1. **Nothing is deployed and no cloud API was called** (no `az`, Neon, Brevo or OpenRouter, no Azure subscription yet). Everything for a short deployment once the account exists is in the repository; the user steps are in [docs/DEPLOYMENT.md](DEPLOYMENT.md).
+- **Image:** `Dockerfile` (multi-stage; embedding model downloaded with `scripts/download-models.sh`, SHA-256 verified; `linux-x64` publish; non-root user `app`; port 8080) and `.dockerignore`. 470 MB uncompressed, about 215 MB compressed. Verified locally against a throwaway pgvector container (since removed): `--migrate` applies all 7 migrations and is repeatable, the Production container reaches `/health/live` and `/health/ready`, rejects a forged `Host` (400), stores the Data Protection ring encrypted in the database, ingests a 400-chunk document to `Ready`. **Measured** with 1 GiB / 0.5 vCPU limits: 60 MiB idle, about 490 MiB peak during ingestion, about 85 s for the 400 chunks.
+- **Finding fixed on the way:** ONNX Runtime ignored the container CPU limit (a dozen spinning threads throttled 96% at 0.5 vCPU; the same file had not finished in 8 minutes). `OnnxEmbeddingGenerator` now uses the cgroup-aware `Environment.ProcessorCount` threads and no spinning (`Embeddings:IntraOpThreads` overrides). Embedding results are unaffected by design (same model and pooling); the retrieval quality tests still pass.
+- **Migrations as a deploy step:** `DocAgent.Api --migrate` (`MigrateCommand`, needs only the connection string, never prints it, exit codes 0/1/2). Production never migrates at startup (test: the database stays empty).
+- **Data Protection key ring:** database table `DataProtectionKeys` (migration `AddDataProtectionKeys`), `PersistKeysToDbContext`, keys encrypted by an X.509 certificate from `DataProtection__CertificatePfxBase64`/`__CertificatePassword` (`ProtectKeysWithCertificate`). Production fails at startup without the certificate or with a non-database store. Development/Testing keep the default file ring (no certificate needed); `DataProtection:Store=Database` opts in. Application name stays "DocAgent". Tests: key from instance A decrypts in instance B, ring is encrypted and unreadable without or with another certificate, Production startup fails without the certificate.
+- **Production configuration:** `appsettings.Production.json` (no secrets): forwarded headers on, app-level HTTPS redirect off (the ingress redirects; probes are plain http), `Llm:NoKeyRoute=Demo`, Brevo SMTP host/port/STARTTLS, DB key ring. `AllowedHosts` must be set and not `*` or the app refuses to start in Production (was a warning). CORS origins, OAuth return URLs, OAuth client ids and secrets, sender address, operator key, SMTP credentials all come from configuration.
+- **Infrastructure:** `infra/main.bicep` + `infra/main.bicepparam` (no secrets; read from environment variables): optional Log Analytics (30-day retention, 1 GB/day cap, or `logsMode=none`), Container Apps environment (Consumption), Container App min 0 / max 1 (max 1: in-process throttles, ingestion worker, demo throttle), 0.5 vCPU / 1 GiB, external HTTPS ingress, startup/liveness/readiness probes with the FQDN as `Host`, secrets as Container Apps secrets. The FQDN is computed in Bicep, so `AllowedHosts` needs no second deployment. **The Bicep was not compiled locally** (the tool could not be downloaded here); CI has a new `infra-validate` job (`az bicep build`, no login) that will check it.
+- **Workflows:** `.github/workflows/deploy.yml` (after CI on a push to `main`, or manual; build and push to GHCR by commit SHA, `--migrate`, OIDC `azure/login`, `az deployment group create`, smoke test; skips itself cleanly until the Azure/Neon secrets exist; never deploys a pull request). `ci.yml` gained `infra-validate` and `docker-build`.
+- **Docs:** [docs/DEPLOYMENT.md](DEPLOYMENT.md) (accounts, OIDC, Neon, Brevo and the spam caveat, OpenRouter, certificate commands, secrets list, two-step first deploy for the OAuth URLs, smoke test mapped to SRS section 8, cost and cold start, rollback), README Deploy section, SETUP_CREDENTIALS, SECURITY_REVIEW (S-18 and S-20 now "Fixed in repo, pending deployment", new S-32 for the key ring, residual-risk list updated, summary table recounted).
+- **Not done / needs the cloud:** every live check (section 6 of DEPLOYMENT.md), Neon connection with `SSL Mode=VerifyFull`, Brevo delivery (spam folder expected without a domain), OAuth apps, GHCR package made public, Bicep compile, first-deployment of the GitHub workflow (action versions were taken from the latest releases and are untested here).
+- **Choices not specified:** migrations via the app image's `--migrate` mode rather than an EF bundle (one artifact, no tool in CI); Log Analytics kept with a daily cap (cheapest option that still stores logs; `none` available); `workflow_run` trigger restricted to push events; `EmailFromAddress` is a required variable; Data Protection cert has no rotation support.
+- **Questions for the stakeholder:** see the final report of this step (domain for email; Neon storage budget for demo users; whether to keep Log Analytics).
 
 ### 2026-11-21: Phase 7 follow-up: stakeholder decisions (build 0 warnings, 658 tests pass, 8 skipped)
 Phase 7 CI run 44834215668 was green (623 passed, 8 skipped). Three binding decisions applied on top of it:

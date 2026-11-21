@@ -23,6 +23,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
+// Deploy step: `DocAgent.Api --migrate` applies the EF Core migrations and exits (production does not migrate at startup).
+if (MigrateCommand.IsRequested(args))
+{
+    return await MigrateCommand.RunAsync(args, Console.Out);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // No "Server: Kestrel" header (OWASP API8).
@@ -138,6 +144,9 @@ builder.Services.AddRetrieval(builder.Configuration);
 builder.Services.AddLlm(builder.Configuration, builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"));
 builder.Services.AddQa(builder.Configuration);
 
+// ---- Data Protection key ring (encrypts the stored BYOK keys): database + certificate in production, default ring in Development/Testing ----
+builder.Services.AddDocAgentDataProtection(builder.Configuration, builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"));
+
 // ---- Email ----
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddTransient<IEmailSender<AppUser>, SmtpEmailSender>();
@@ -159,16 +168,16 @@ builder.Services.AddHsts(options =>
 builder.Services.AddDocAgentOpenApi();
 builder.Services.AddProblemDetails();
 
+// Identity builds the confirmation link from the request's Host header; without a host allow-list a forged Host header ends up in the email.
+// Fail fast in production rather than run open (Development/Testing keep '*').
+if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+{
+    HttpHardening.RequireAllowedHosts(builder.Configuration);
+}
+
 var app = builder.Build();
 
 await app.ApplyMigrationsIfNeededAsync();
-
-if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing")
-    && string.IsNullOrWhiteSpace(app.Configuration["AllowedHosts"]?.Replace("*", "")))
-{
-    // Identity builds the confirmation link from the request's Host header; without a host allow-list a forged Host header ends up in the email.
-    app.Logger.LogWarning("AllowedHosts is '*' or empty. Set AllowedHosts to the public host name(s) of this API in production.");
-}
 
 app.UseForwardedHeadersIfEnabled(app.Configuration); // first: everything below sees the client's scheme and IP
 app.UseSecurityHeaders();
@@ -189,7 +198,12 @@ if (app.Environment.IsDevelopment())
     app.MapDevExternalLoginTestPage();
 }
 
-app.UseHttpsRedirection();
+if (app.Configuration.GetValue("HttpsRedirection:Enabled", true))
+{
+    // Off in production behind Azure Container Apps: the ingress already redirects http to https (allowInsecure=false), and the in-cluster health
+    // probes use plain http without X-Forwarded-Proto, so redirecting them would only produce a redirect with no port to point to.
+    app.UseHttpsRedirection();
+}
 app.UseRequestBodyLimit(app.Configuration);
 app.UseUiCors(app.Configuration);
 
@@ -210,6 +224,7 @@ app.MapAsk();
 app.MapWorkflows();
 
 app.Run();
+return 0;
 
 // Makes the generated Program class visible to WebApplicationFactory in integration tests.
 public partial class Program;

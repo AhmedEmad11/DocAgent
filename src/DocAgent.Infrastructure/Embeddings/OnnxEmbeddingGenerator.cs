@@ -22,7 +22,7 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
     private readonly bool _needsTokenTypeIds;
     private readonly EmbeddingGeneratorMetadata _metadata;
 
-    public OnnxEmbeddingGenerator(string modelDirectory, EmbeddingTokenizer tokenizer, int maxSequenceLength = 512, int batchSize = 16)
+    public OnnxEmbeddingGenerator(string modelDirectory, EmbeddingTokenizer tokenizer, int maxSequenceLength = 512, int batchSize = 16, int intraOpThreads = 0)
     {
         var onnx = Path.Combine(modelDirectory, EmbeddingOptions.OnnxFileName);
         if (!File.Exists(onnx))
@@ -33,13 +33,29 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
         _tokenizer = tokenizer;
         _maxSequenceLength = maxSequenceLength;
         _batchSize = Math.Max(1, batchSize);
-        _session = new InferenceSession(onnx);
+        _session = new InferenceSession(onnx, CreateSessionOptions(intraOpThreads));
         _needsTokenTypeIds = _session.InputMetadata.ContainsKey("token_type_ids");
         // "last_hidden_state" is [batch, sequence, 384] (token embeddings); we pool it ourselves.
         _outputName = _session.OutputMetadata.ContainsKey("last_hidden_state")
             ? "last_hidden_state"
             : _session.OutputMetadata.Keys.First();
         _metadata = new EmbeddingGeneratorMetadata(EmbeddingOptions.ModelName, defaultModelId: EmbeddingOptions.ModelName, defaultModelDimensions: Dimensions);
+    }
+
+    /// <summary>
+    /// ONNX Runtime sizes its thread pool from the host's physical cores and ignores container CPU limits; with a 0.5 vCPU limit (Azure Container Apps)
+    /// a dozen spinning threads were throttled 96% of the time and embedding was more than 10x slower. .NET's <see cref="Environment.ProcessorCount"/>
+    /// honours the cgroup limit, so use it (0 = that value), and do not let idle workers spin.
+    /// </summary>
+    private static SessionOptions CreateSessionOptions(int intraOpThreads)
+    {
+        var options = new SessionOptions
+        {
+            IntraOpNumThreads = intraOpThreads > 0 ? intraOpThreads : Math.Max(1, Environment.ProcessorCount),
+            InterOpNumThreads = 1,
+        };
+        options.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
+        return options;
     }
 
     public Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(
