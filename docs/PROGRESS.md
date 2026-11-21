@@ -5,8 +5,8 @@ Updated with each commit. Newest entries at the top.
 ## Current status
 | Item | Value |
 |---|---|
-| Current phase | Phase 8: repo-side ready, waiting for Azure account |
-| Next step | User creates Azure account, then cloud deploy ([docs/DEPLOYMENT.md](DEPLOYMENT.md)), then acceptance check (checkpoint) |
+| Current phase | Phase 9: requirements and plan drafted (awaiting approval); Phase 8: adapting for SnapDeploy |
+| Next step | Stakeholder approves SRS §10 + Phase 9 plan → 9.0 skeleton; stakeholder connects GitHub in SnapDeploy and creates Neon/Brevo/OpenRouter accounts → deploy |
 | Blockers | None |
 
 ## Phase checklist
@@ -24,6 +24,12 @@ Updated with each commit. Newest entries at the top.
 - [ ] Phase 9: Next.js frontend
 
 ## Log
+
+### 2026-11-21: Phase 9 (frontend) requirements and plan drafted; API hosting moved to SnapDeploy
+- SRS §10 "Frontend (Phase 9)": decisions D33–D43, 70 functional (UI-AUTH/DOC/QA/SUM/KEY/DEMO/ACC/GEN) and 39 non-functional requirements (UI-SEC/A11Y/I18N/PERF/BRW/OPS), API error-code → message table, 10 acceptance criteria. Open issues OI-8..OI-23 resolved by the stakeholder: upload ticket with CORS only on the upload endpoint (D40), trusted `X-Client-IP` + shared secret (D41), `web/` folder in this repo with a neutral look (D42), all other recommended defaults accepted.
+- DEVELOPMENT_PLAN Phase 9: sub-phases 9.0–9.7 (checkpoints 9.1 and 9.7), pinned versions (Next.js 16.4.6, React 19.3.1, Tailwind 4.3.5, next-intl 4.15.3, Vitest 5.1.1, Playwright 1.65.1, ...), API-side changes A1–A8, risks R9.1–R9.15.
+- API hosting (D8 amended, D43): Azure requires a credit card, so the API deploys to SnapDeploy free tier (512 MB, 0.25 vCPU, 100 h/month, sleeps after 15 min) with Neon, Brevo and OpenRouter; Azure Container Apps stays a documented alternative. Repo adaptation (memory budget, PORT, MigrateOnStartup, deploy guide) in progress.
+- Phase 8 repo-side and placeholder-password commits: CI green (run 44907509755).
 
 ### 2026-11-21: GitGuardian "Generic Password" alerts (false positives) and placeholder test passwords
 - 5 GitGuardian incidents (commits 417984c x3, 4feb597, c44f802) all pointed at made-up test values (test-account passwords, a test certificate password, a fake connection-string password). No real credential was ever committed (full history scanned; GitHub secret scanning: 0 alerts). Nothing to revoke; the owner resolves the incidents as false positives in GitGuardian.
