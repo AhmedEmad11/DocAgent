@@ -3,9 +3,9 @@
 
 | Field | Value |
 |---|---|
-| Version | 0.3 (§1–9 approved 2026-11-12; §10 frontend drafted 2026-11-21) |
+| Version | 0.3 (§1–9 approved 2026-11-12; §10 frontend approved 2026-11-21) |
 | Date | 2026-11-12 |
-| Status | §1–9 approved; §10 (frontend) open issues resolved, awaiting stakeholder approval |
+| Status | Approved |
 
 ---
 
@@ -306,7 +306,7 @@ All resolved on 2026-11-12.
 
 ## 10. Frontend (Phase 9)
 
-Status: **draft, awaiting stakeholder approval of the full section; open issues OI-8 to OI-23 resolved 2026-11-21.** No frontend code is written until this section and the Phase 9 plan in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) are approved and the open issues in §10.9 are answered. Sections 1 to 9 describe the API and stay valid; this section adds the web UI that consumes it (D2).
+Status: **approved 2026-11-21 (with the Phase 9 plan); open issues OI-8 to OI-23 resolved 2026-11-21.** Sections 1 to 9 describe the API and stay valid; this section adds the web UI that consumes it (D2).
 
 ### 10.1 Scope
 A web application ("the UI") for the DocAgent API. It covers every user-facing API capability of v1: sign-in and account recovery, documents, questions with streamed progress and citations, summary and compare, LLM key settings, the demo banner and privacy notice, the account page and storage usage.
