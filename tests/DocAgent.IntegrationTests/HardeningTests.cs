@@ -118,7 +118,7 @@ public sealed class HardeningTests(PostgresFixture postgres)
 
         for (var i = 0; i < 5; i++)
         {
-            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = "Wr0ng!pass" })).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = "Example-Wrong-3" })).StatusCode);
         }
 
         var locked = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = AuthTestHelpers.Password });
@@ -260,7 +260,7 @@ public sealed class HardeningTests(PostgresFixture postgres)
         await AssertProblemAsync(await user.Client.PostAsync("/api/v1/ask", big2), HttpStatusCode.RequestEntityTooLarge);
 
         // Normal-sized requests are untouched.
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { email = "x@example.com", password = "Wr0ng!pass" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { email = "x@example.com", password = "Example-Wrong-3" })).StatusCode);
     }
 
     [Fact]

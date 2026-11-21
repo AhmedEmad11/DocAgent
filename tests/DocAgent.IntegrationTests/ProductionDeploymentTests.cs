@@ -116,8 +116,8 @@ public sealed class ProductionDeploymentTests(PostgresFixture postgres)
         Assert.Equal(2, await MigrateCommand.RunAsync(connectionString: null, none));
 
         var failed = new StringWriter();
-        Assert.Equal(1, await MigrateCommand.RunAsync("Host=127.0.0.1;Port=1;Database=x;Username=u;Password=s3cret-pw-xyz;Timeout=2", failed));
-        Assert.DoesNotContain("s3cret-pw-xyz", failed.ToString());
+        Assert.Equal(1, await MigrateCommand.RunAsync("Host=127.0.0.1;Port=1;Database=x;Username=u;Password=example-only-not-a-secret;Timeout=2", failed));
+        Assert.DoesNotContain("example-only-not-a-secret", failed.ToString());
 
         Assert.True(MigrateCommand.IsRequested(["--migrate"]));
         Assert.False(MigrateCommand.IsRequested([]));

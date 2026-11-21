@@ -25,6 +25,12 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-21: GitGuardian "Generic Password" alerts (false positives) and placeholder test passwords
+- 5 GitGuardian incidents (commits 417984c x3, 4feb597, c44f802) all pointed at made-up test values (test-account passwords, a test certificate password, a fake connection-string password). No real credential was ever committed (full history scanned; GitHub secret scanning: 0 alerts). Nothing to revoke; the owner resolves the incidents as false positives in GitGuardian.
+- Replaced those values with obvious placeholders (`Example-Only-1/2`, `Example-Wrong-3`, `example-only-not-a-secret`) in tests, the `.http` file and the OpenAPI examples. Scanner left fully enabled (no ignore file).
+- Phase 8 repo-side CI (run 44843449616) green: build-and-test, infra-validate (Bicep compiles), docker-build; Deploy workflow skipped as designed.
+- Build 0 warnings; tests 671 passed, 8 skipped.
+
 ### 2026-11-21: Phase 8 (repo side) prepared (build 0 warnings, 671 tests pass, 8 skipped)
 Follows the Phase 7 follow-up commit 8b64ca1. **Nothing is deployed and no cloud API was called** (no `az`, Neon, Brevo or OpenRouter, no Azure subscription yet). Everything for a short deployment once the account exists is in the repository; the user steps are in [docs/DEPLOYMENT.md](DEPLOYMENT.md).
 - **Image:** `Dockerfile` (multi-stage; embedding model downloaded with `scripts/download-models.sh`, SHA-256 verified; `linux-x64` publish; non-root user `app`; port 8080) and `.dockerignore`. 470 MB uncompressed, about 215 MB compressed. Verified locally against a throwaway pgvector container (since removed): `--migrate` applies all 7 migrations and is repeatable, the Production container reaches `/health/live` and `/health/ready`, rejects a forged `Host` (400), stores the Data Protection ring encrypted in the database, ingests a 400-chunk document to `Ready`. **Measured** with 1 GiB / 0.5 vCPU limits: 60 MiB idle, about 490 MiB peak during ingestion, about 85 s for the 400 chunks.

@@ -88,7 +88,7 @@ public sealed class AuthFlowTests(PostgresFixture postgres) : IAsyncLifetime
         var email = AuthTestHelpers.NewEmail();
         await client.RegisterAsync(email);
 
-        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = "Wr0ng!pass" });
+        var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = "Example-Wrong-3" });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -112,7 +112,7 @@ public sealed class AuthFlowTests(PostgresFixture postgres) : IAsyncLifetime
             (await client.PostAsJsonAsync("/api/v1/auth/forgotPassword", new { email })).StatusCode);
 
         var resetCode = _factory.Emails.Last("resetCode", email).Value;
-        const string newPassword = "N3wPassw0rd!";
+        const string newPassword = "Example-Only-2";
         var reset = await client.PostAsJsonAsync("/api/v1/auth/resetPassword", new { email, resetCode, newPassword });
         Assert.Equal(HttpStatusCode.OK, reset.StatusCode);
 

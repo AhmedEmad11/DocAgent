@@ -15,13 +15,13 @@ GET {{DocAgent.Api_HostAddress}}/openapi/v1.json
 POST {{DocAgent.Api_HostAddress}}/api/v1/auth/register
 Content-Type: application/json
 
-{ "email": "me@example.com", "password": "Passw0rd!x" }
+{ "email": "me@example.com", "password": "Example-Only-1" }
 
 ### Login: returns accessToken (1 h) and refreshToken (14 d)
 POST {{DocAgent.Api_HostAddress}}/api/v1/auth/login
 Content-Type: application/json
 
-{ "email": "me@example.com", "password": "Passw0rd!x" }
+{ "email": "me@example.com", "password": "Example-Only-1" }
 
 > {% client.global.set("accessToken", response.body.accessToken); client.global.set("refreshToken", response.body.refreshToken); %}
 
@@ -50,7 +50,7 @@ Content-Type: application/json
 POST {{DocAgent.Api_HostAddress}}/api/v1/auth/resetPassword
 Content-Type: application/json
 
-{ "email": "me@example.com", "resetCode": "<code>", "newPassword": "N3wPassw0rd!" }
+{ "email": "me@example.com", "resetCode": "<code>", "newPassword": "Example-Only-2" }
 
 ### ---- External sign-in (Google / GitHub) ----
 # Open these in a browser, not here: they redirect to the provider. returnUrl must be on the allowlist

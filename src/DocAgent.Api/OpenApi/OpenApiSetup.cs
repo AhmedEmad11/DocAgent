@@ -145,11 +145,11 @@ public static class OpenApiSetup
 
     private static readonly Dictionary<(string Method, string Path), string> Examples = new()
     {
-        [("POST", "/api/v1/auth/register")] = """{ "email": "ada@example.com", "password": "Passw0rd!x" }""",
-        [("POST", "/api/v1/auth/login")] = """{ "email": "ada@example.com", "password": "Passw0rd!x" }""",
+        [("POST", "/api/v1/auth/register")] = """{ "email": "ada@example.com", "password": "Example-Only-1" }""",
+        [("POST", "/api/v1/auth/login")] = """{ "email": "ada@example.com", "password": "Example-Only-1" }""",
         [("POST", "/api/v1/auth/refresh")] = """{ "refreshToken": "<refresh token from login>" }""",
         [("POST", "/api/v1/auth/forgotPassword")] = """{ "email": "ada@example.com" }""",
-        [("POST", "/api/v1/auth/resetPassword")] = """{ "email": "ada@example.com", "resetCode": "<code from the email>", "newPassword": "N3w!Passw0rd" }""",
+        [("POST", "/api/v1/auth/resetPassword")] = """{ "email": "ada@example.com", "resetCode": "<code from the email>", "newPassword": "Example-Only-2" }""",
         [("POST", "/api/v1/auth/external/exchange")] = """{ "code": "<one-time code from the return URL>" }""",
         [("PUT", "/api/v1/me/llm-key")] = """{ "provider": "openrouter", "model": "openai/gpt-4o-mini", "apiKey": "<your provider API key>" }""",
         [("POST", "/api/v1/ask")] = """{ "question": "How many vacation days do I get?", "documentIds": ["3fa85f64-5717-4562-b3fc-2c963f66afa6"] }""",

@@ -12,7 +12,7 @@ public sealed class RateLimitTests(PostgresFixture postgres)
         var cs = await TestDatabase.CreateAsync(postgres);
         await using var factory = new DocAgentApiFactory(cs, raiseRateLimit: false); // real default: 10 per minute
         using var client = factory.CreateClient();
-        var body = new { email = "nobody@example.com", password = "Wr0ng!pass" };
+        var body = new { email = "nobody@example.com", password = "Example-Wrong-3" };
 
         for (var i = 1; i <= 10; i++)
         {

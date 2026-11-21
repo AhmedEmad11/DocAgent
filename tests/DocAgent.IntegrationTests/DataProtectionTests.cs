@@ -12,7 +12,7 @@ namespace DocAgent.IntegrationTests;
 [Collection(PostgresCollection.Name)]
 public sealed class DataProtectionTests(PostgresFixture postgres)
 {
-    public const string Password = "test-only-pfx-password";
+    public const string Password = "example-only-not-a-secret";
 
     /// <summary>A throwaway self-signed certificate; returns the base64 .pfx the configuration expects.</summary>
     public static string NewPfxBase64()

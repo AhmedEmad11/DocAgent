@@ -8,7 +8,7 @@ public sealed record Tokens(string AccessToken, string RefreshToken);
 
 public static class AuthTestHelpers
 {
-    public const string Password = "Passw0rd!x";
+    public const string Password = "Example-Only-1";
 
     public static string NewEmail() => $"user-{Guid.NewGuid():N}@example.com";
 
