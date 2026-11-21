@@ -7,7 +7,7 @@ A document Q&A API: users upload documents and ask questions about them. Answers
 - Progress log: [docs/PROGRESS.md](docs/PROGRESS.md)
 
 ## Status
-Phase 7 (hardening) implemented; Phase 8 (deployment) is prepared in the repository and waiting for an Azure account: nothing is deployed yet. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and the progress log.
+Phase 7 (hardening) implemented; Phase 8 (deployment) is prepared in the repository for the SnapDeploy free tier (Azure Container Apps kept as an alternative): nothing is deployed yet. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and the progress log.
 
 ## Prerequisites
 - .NET 10 SDK
@@ -124,12 +124,12 @@ DOCAGENT_PERF_TESTS=1 dotnet test tests/DocAgent.IntegrationTests --filter "Full
 ```
 
 ## Deploy (Phase 8)
-Target: Azure Container Apps (Consumption, scale to zero, one replica) with a Neon Postgres database, email through Brevo SMTP, the OpenRouter demo model, image on GHCR. Step by step (accounts, OIDC, secrets, first deploy, smoke test, cost, rollback): **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
-- `Dockerfile`: multi-stage, non-root, listens on 8080, the embedding model is downloaded and SHA-256 verified at build time. `docker build -t docagent-api .`
-- `docker run --rm -e ConnectionStrings__docagentdb=... docagent-api --migrate` applies the database migrations and exits. Production never migrates at startup.
-- `infra/main.bicep` + `infra/main.bicepparam`: Container Apps environment, the app (min 0 / max 1 replica, probes, secrets), optional Log Analytics. No secrets in the repository; they come from GitHub secrets.
-- `.github/workflows/deploy.yml`: after CI on `main` (or by hand) builds and pushes the image, migrates, deploys. It skips itself cleanly until the Azure and Neon settings exist.
+Primary target: the **SnapDeploy free tier** (no credit card): the API runs from this repository's `Dockerfile` in a 512 MB / 0.25 vCPU container (sleeps after 15 minutes without traffic, 100 container-hours a month), with a Neon Postgres database, email through Brevo SMTP and the OpenRouter demo model. Azure Container Apps (Bicep + GitHub workflow, scale to zero) is kept as an alternative. Step by step (accounts, the exact environment variables and which are secrets, first deploy, OAuth apps, smoke test, limits, memory numbers): **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+- `Dockerfile`: multi-stage, non-root, the embedding model is downloaded and SHA-256 verified at build time, tuned for 512 MB (workstation GC, small embedding batches, no ONNX memory arena). Listens on `PORT` when the host sets it (SnapDeploy), otherwise 8080. `docker build -t docagent-api .`
+- Migrations: `Database__MigrateOnStartup=true` applies them at startup under a Postgres advisory lock (hosts without a pre-deploy hook, SnapDeploy); a failure stops the startup with a clear message. Default `false` in Production. `docker run --rm -e ConnectionStrings__docagentdb=... docagent-api --migrate` applies them and exits (the Azure deploy step, or a one-off run).
+- `infra/main.bicep` + `infra/main.bicepparam`, `.github/workflows/deploy.yml`: the Azure path (Container Apps, min 0 / max 1 replica, probes, secrets; after CI on `main` it builds, pushes, migrates, deploys). It skips itself cleanly until the Azure and Neon settings exist and is not used for SnapDeploy.
 - In Production the app **refuses to start** without: `AllowedHosts` set to the public host (not `*`), the operator OpenRouter key, and the Data Protection certificate (`DataProtection__CertificatePfxBase64` / `__CertificatePassword`). The Data Protection key ring (which encrypts users' stored LLM keys) is kept in the database and encrypted with that certificate; Development keeps the default local key files and needs no certificate.
+- Behind a TLS-terminating edge: `ForwardedHeaders__Enabled` (Production default `true`), `ForwardedHeaders__ForwardLimit`, and `ForwardedHeaders__AssumeHttps` (for an edge that sends no `X-Forwarded-Proto`) are configurable.
 
 ## Agent evaluation (SRS D32)
 `tests/DocAgent.EvalTests` holds a fixed bilingual corpus (`Corpus/`) and the question set (`eval-set.json`: answerable questions of several types, at least 40% Arabic, plus unanswerable ones). It needs Docker, the embedding model and Ollama with `gemma4:12b`, and is skipped in normal `dotnet test` runs (only its grader unit tests run):

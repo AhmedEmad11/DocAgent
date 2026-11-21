@@ -1,6 +1,147 @@
-# Deployment (Phase 8): Azure Container Apps + Neon
+# Deployment (Phase 8): SnapDeploy (primary) or Azure Container Apps, with Neon
 
-Status: **the repository side is ready; nothing has been deployed.** There is no Azure subscription yet. Every command below that talks to a cloud service is for you to run once the account exists. Nothing in this repository calls Azure, Neon, Brevo or OpenRouter by itself except the deploy workflow, and that skips itself until you configure it.
+Status: **the repository side is ready; nothing has been deployed.** Azure needs a credit card, so the stakeholder chose the **SnapDeploy free tier** as the primary host (SRS D43). Azure Container Apps stays documented below as an alternative (Bicep and workflow kept). Every step that talks to a cloud service is for you to do once; nothing in this repository calls SnapDeploy, Azure, Neon, Brevo or OpenRouter by itself.
+
+## SnapDeploy (primary, no credit card)
+
+What runs where:
+
+| Part | Service | Cost model |
+|---|---|---|
+| API (built from this repository's `Dockerfile`) | SnapDeploy free tier, one container named `docagent`: https://docagent.containers.snapdeploy.app | free; 512 MB RAM, 0.25 vCPU, 100 container-hours/month, sleeps when idle |
+| Database (Postgres + pgvector) | Neon free tier | free, 0.5 GB |
+| Confirmation / reset email | Brevo SMTP relay (`smtp-relay.brevo.com:587`, STARTTLS) | free tier (300 emails/day) |
+| Demo LLM | OpenRouter, free models, operator key | free |
+| Web UI (Phase 9) | Vercel Hobby | free |
+
+### S1. Limits you are signing up for (SnapDeploy free tier)
+| Limit | Effect on DocAgent |
+|---|---|
+| **512 MB RAM, 0.25 vCPU** | The image is tuned for it (section S9): peak about 330 to 400 MiB of process memory (480 MiB including reclaimable file cache) for a 400-chunk file, up to about 440 MiB (cgroup peak 500 MiB, at the limit but never OOM-killed) for a 25 MB DOCX with 1,738 chunks. Embedding is slow at 0.25 vCPU: about 5 to 6.5 minutes for 400 chunks and about 20 minutes for 1,738 (a 2,000-chunk document: about 23 minutes). Prefer BYOK users uploading smaller documents; this also burns container-hours. |
+| **100 container-hours per month**, account-wide | Roughly 4 days of 24/7 uptime. With sleep (next row) a demo used a few hours a day fits. Check usage in the SnapDeploy dashboard. |
+| **Sleeps after 15 minutes without HTTP traffic**, wakes in about a minute | The first request after sleep gets a 503 wake page for up to about a minute; the UI must retry. The process restarts, so nothing in memory survives (the app keeps none that matters: sessions are bearer tokens, state is in Postgres). See S8 for ingestion. |
+| Ephemeral file system, no volumes | The app writes nothing it needs to keep (uploads are staged in Postgres, the Data Protection key ring is in Postgres). |
+| One IP above 100 requests/minute to one app gets **429 for 10 minutes** | A page that polls document status every 2 s is 30/min; stay well under 100/min per IP in the UI. Remember the UI server (Vercel) calls the API: all its users share Vercel's egress IPs. Keep BFF polling modest. |
+| No custom domain on the free tier | The URL is `https://<name>.containers.snapdeploy.app`; the container name `docagent` must be free (otherwise use another name and replace it everywhere below). Because there is no domain of your own, Brevo mail has the spam caveat of section 2.5. |
+| SSE over plain HTTP works, WebSockets do not | The API streams answers over SSE; it uses no WebSockets. |
+| No pre-deploy hook | Migrations run at startup: `Database__MigrateOnStartup=true` (S5). |
+| Outbound HTTPS and the standard Postgres port are allowed | Neon (5432), Brevo (587), OpenRouter and the OAuth providers are reachable. If Brevo's port 587 turns out to be blocked, use port 2525 (`Email__Smtp__Port=2525`). |
+
+**Acceptable use.** DocAgent calls AI providers as part of its own product: the demo uses the operator's OpenRouter key for the free demo model; a user's own (BYOK) key is used only for that user's own requests, held encrypted at rest, never shared and never used for anyone else. It is not a relay or proxy for AI APIs (there is no endpoint that forwards arbitrary requests). SnapDeploy checks images and runtime configuration against its Acceptable Use Policy; if a policy check rejects the deployment, report that to the stakeholder as is.
+
+### S2. Accounts (once)
+1. **GitHub**: the repository must be reachable by SnapDeploy. Sign in to SnapDeploy (https://snapdeploy.dev) with GitHub and connect the repository (it builds from the connected repository with this repository's `Dockerfile`; it does not pull a prebuilt image on the free path).
+2. **Neon**, **Brevo**, **OpenRouter**, **Data Protection certificate**: follow sections 2.4 to 2.7 (they are host-independent). Differences for SnapDeploy: in 2.4 choose the Neon region closest to SnapDeploy's region; pgvector needs nothing by hand because the first migration runs `CREATE EXTENSION vector` (run `CREATE EXTENSION IF NOT EXISTS vector;` in Neon's SQL editor if that ever fails). Use the **direct** connection (no `-pooler`), in Npgsql form, as in 2.4.
+
+### S3. Environment variables for the container `docagent`
+You enter these in the SnapDeploy UI for the container (Environment Variables). **Secrets: type them into the SnapDeploy UI yourself; never paste them into chat, commits or issues.** `PORT` is set by SnapDeploy; do not set it (the app listens on it, S4).
+
+| Variable | Value | Secret |
+|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Production` (already the image default; harmless to repeat) | no |
+| `AllowedHosts` | `docagent.containers.snapdeploy.app` (add `;localhost` only if SnapDeploy's health check turns out to send another Host, S4) | no |
+| `Database__MigrateOnStartup` | `true` | no |
+| `ConnectionStrings__docagentdb` | the Neon connection string from 2.4 (`Host=...;Database=docagentdb;Username=...;Password=...;SSL Mode=VerifyFull;Gss Encryption Mode=Disable;Maximum Pool Size=5;Timeout=30`) | **yes** |
+| `Llm__Demo__OpenRouterApiKey` | your OpenRouter key (2.6) | **yes** |
+| `DataProtection__CertificatePfxBase64` | contents of `dp.pfx.b64` (2.7) | **yes** |
+| `DataProtection__CertificatePassword` | the .pfx password (2.7) | **yes** |
+| `Email__Smtp__Username` | Brevo SMTP login (2.5) | **yes** |
+| `Email__Smtp__Password` | Brevo SMTP key (2.5) | **yes** |
+| `Email__FromAddress` | your verified Brevo sender address | no (personal address) |
+| `Email__FromName` | `DocAgent` | no |
+| `ForwardedHeaders__Enabled` | `true` (already the Production default) | no |
+| `ForwardedHeaders__ForwardLimit` | `1` (default; raise to 2 if SnapDeploy chains two proxies and the logged client IP is the edge's, S4) | no |
+| `ForwardedHeaders__AssumeHttps` | `false` (set `true` only if the OAuth redirect URI the app builds is `http://`, S4) | no |
+| `Authentication__External__AllowedReturnUrls__0` | the UI origin, for example `https://<your-ui>.vercel.app` (leave out until the UI exists) | no |
+| `Authentication__Google__ClientId` / `Authentication__GitHub__ClientId` | OAuth client ids (S7) | no |
+| `Authentication__Google__ClientSecret` / `Authentication__GitHub__ClientSecret` | OAuth client secrets (S7) | **yes** |
+| `Cors__AllowedOrigins__0` | leave unset (the UI calls the API server to server, D39; set it only for the direct upload, D40) | no |
+| `Embeddings__BatchSize` and the memory settings (S9) | image defaults; override only to experiment | no |
+
+Not needed on SnapDeploy: `HttpsRedirection__Enabled` (Production default `false`), `Llm__NoKeyRoute` (Production default `Demo`), `Email__Smtp__Host/Port/UseStartTls` (Production defaults for Brevo).
+
+The same values work as a deploy call's environment (SnapDeploy API / MCP `set_env`): names only ever leave SnapDeploy; it never returns secret values.
+
+### S4. How the app behaves behind SnapDeploy's edge
+- **Port.** SnapDeploy passes `PORT` and auto-detects the port. The app listens on `PORT` when it is set (all interfaces, plain HTTP, `HTTP_PORTS` mapping in `Program.cs`), otherwise on 8080 (the image default, which Azure uses). A non-numeric `PORT` stops the startup with a message.
+- **TLS** ends at the edge. Production has the app's own https redirect off (`HttpsRedirection__Enabled=false`): platform health probes use plain HTTP and would only get a redirect.
+- **Forwarded headers: unverified.** What SnapDeploy's edge forwards is not documented. The app trusts `X-Forwarded-For` and `X-Forwarded-Proto` (limit 1, `ForwardedHeaders__*`) so that the per-IP auth rate limit sees real client IPs, HSTS is sent and OAuth builds `https://` callback URLs. **Check after the first deploy** (smoke test S6, item 2 and 12): `curl -i https://docagent.containers.snapdeploy.app/health/live` should show `Strict-Transport-Security`. If it does not, the edge sends no `X-Forwarded-Proto`: set `ForwardedHeaders__AssumeHttps=true` (every request is then treated as https; safe because the app is reachable only through the edge). If the edge sends no `X-Forwarded-For` either, all users share one rate-limit bucket for the auth endpoints (10 requests/minute for everybody): raise `RateLimiting__Auth__PermitLimit` until that is sorted out. The trust of forwarded headers is only safe while the container is reachable solely through the edge (no other public route).
+- **`AllowedHosts`** must name the public host; Production refuses `*`. Probes that send another `Host` (a container IP, `localhost`) get 400 from `AllowedHosts`; if SnapDeploy's own health check does that, add it: `AllowedHosts=docagent.containers.snapdeploy.app;localhost`.
+- **Health endpoints**: `GET /health/live` (process up, no database) and `GET /health/ready` (includes the database). Use `/health/live` as the container's health check path if SnapDeploy asks for one, so a database hiccup does not mark the container dead; `/health/ready` for checking the deployment.
+- **OAuth**: with the Production defaults the external sign-in code hand-off allows only the URLs in `Authentication__External__AllowedReturnUrls__N`. Callbacks stay `/signin-google` and `/signin-github` on the API host.
+
+### S5. Migrations at startup
+There is no pre-deploy hook, so set `Database__MigrateOnStartup=true` (it is `false` by default in Production; Azure keeps the `--migrate` deploy step). At startup the app takes a Postgres advisory lock, applies pending EF Core migrations, and releases the lock; a second instance starting at the same time waits and then finds nothing to do. **If it fails, the app does not start** and the log shows `Startup stopped: applying the database migrations failed (...)` with the error type and message (never the password), instead of serving a half-migrated schema. The wait is bounded by `Database__MigrationTimeoutSeconds` (default 300; a sleeping Neon compute needs a few seconds to wake). `DocAgent.Api --migrate` still works (same lock) for a one-off run from your machine against Neon: `docker run --rm -e ConnectionStrings__docagentdb="$NEON_CONNECTION_STRING" <image> --migrate`.
+
+### S6. First deploy and smoke test
+1. In SnapDeploy: new container from the connected GitHub repository, branch `main`, name `docagent`, build with the repository's `Dockerfile` (root). The first build downloads the 140 MB embedding model (SHA-256 verified) and takes several minutes.
+2. Set the environment variables of S3 (**before** the first start; the app refuses to start without `AllowedHosts`, the operator key and the certificate, with a message that names the setting), then deploy.
+3. `curl https://docagent.containers.snapdeploy.app/health/ready` answers `Healthy` (the first call after sleep sees the 503 wake page for up to a minute).
+4. Create the OAuth apps (S7), set their variables, restart.
+5. Run the checks below (the acceptance criteria of SRS section 8 plus the hosting checks). A checkmark means a person ran it against the live deployment; **none has been run yet**.
+
+| # | Check | SRS |
+|---|---|---|
+| 1 | Register, receive the confirmation email (check spam, 2.5), confirm, sign in; upload a pdf, a docx and a md/txt file and see each reach `Ready` (the first ingestion after a wake loads the model; see S1 for timing); ask a question and get a cited answer (demo mode). | AC 1 |
+| 2 | `curl -i https://docagent.containers.snapdeploy.app/health/live`: has `Strict-Transport-Security`, no `Server` header (else S4: `AssumeHttps`); `curl -H "Host: evil.example" ...` straight to the container IP is rejected (400) where reachable; `/openapi/v1.json` is served. | SEC-4, S-18 |
+| 3 | Second account cannot see, cite, list or delete the first account's documents (404/empty). | AC 2 |
+| 4 | Save a BYOK key (`PUT /api/v1/me/llm-key`), ask: the answer comes from that provider; delete the key: back to demo. **Redeploy, then ask again with the saved key**: it must still decrypt (the key ring lives in Neon, encrypted by your certificate). | AC 3, SEC-1 |
+| 5 | Demo limits: the 11th question of the UTC day returns 429 `demo_quota_exceeded`; a 4th document is refused. | AC 4 |
+| 6 | Summarize and compare two documents: results include citations. | AC 5 |
+| 7 | Sign in with Google and with GitHub (needs S7; the UI return URL for the hand-off, or call `/api/v1/auth/external/...` and read the redirect: the `redirect_uri` must be `https://docagent.containers.snapdeploy.app/signin-...`). | AUTH-3/4 |
+| 8 | Auth rate limit: 11 wrong logins in a minute from one machine give 429, while a second machine/network is not limited (forwarded headers work). | SEC-8 |
+| 9 | Sleep and wake: leave it 20 minutes, call `/health/live` (wake page for up to a minute, then 200); upload a large file and close the browser: ingestion resumes after the next wake (S8). | AC 6 |
+| 10 | SnapDeploy dashboard: memory stays under 512 MB, container-hours stay within the plan; Neon: storage well under 0.5 GB. Logs show structured request logs and no secrets. | AC 6, OBS-1 |
+
+### S7. OAuth apps with the SnapDeploy URL
+- **Google** (https://console.cloud.google.com/apis/credentials): OAuth client, type Web application, name `DocAgent prod`. Authorized redirect URI: `https://docagent.containers.snapdeploy.app/signin-google`. Publish the consent screen to Production for users other than test users (basic scopes need no review).
+- **GitHub** (https://github.com/settings/developers): OAuth App `DocAgent (prod)`. Homepage `https://docagent.containers.snapdeploy.app`, callback `https://docagent.containers.snapdeploy.app/signin-github`.
+- Put the client ids and secrets in the SnapDeploy environment (S3). A provider is enabled only when both its id and its secret are set. If the container is named differently, use that URL.
+
+### S8. Ingestion and sleep
+Ingestion runs inside the API process, and a container with no HTTP traffic for 15 minutes is put to sleep. Nothing is lost silently:
+- While a user waits for a document, the UI polls its status (every few seconds), and that traffic keeps the container awake until ingestion finishes. Keep the UI polling while any document is `Pending`/`Processing` (this is what keeps a 15-minute ingestion alive); a user who uploads and closes the tab can see the container go to sleep mid-ingestion.
+- On a graceful stop (SIGTERM) the running job is put back in the queue immediately and the interrupted run does not count as an attempt. If the container is killed instead (no SIGTERM, out of memory), the job stays `Running`; at the next start the worker puts every `Running` job back in the queue (it fails after 3 interrupted attempts with a visible reason: `Processing was interrupted repeatedly. Please upload the file again.`). The uploaded bytes stay in Postgres until ingestion succeeds or fails, so the work restarts by itself on wake: the document shows `Pending`, then `Processing`, then `Ready`.
+- The wake-up is triggered by the next HTTP request, so a document whose user never returns resumes only when someone calls the API again.
+
+### S9. Memory and CPU on 512 MB / 0.25 vCPU
+Measured locally with `docker run --memory 512m --cpus 0.25` (Production environment, `PORT=10000`, `Database__MigrateOnStartup=true`, throwaway pgvector Postgres in a second container), memory read from the container's cgroup (`memory.peak`; "anon" = process memory without the kernel's reclaimable file cache, which counts toward the limit but is released under pressure):
+
+| Moment | Before tuning | After tuning |
+|---|---|---|
+| idle after start (model not loaded) | about 65 MiB | about 75 MiB |
+| peak, 403-chunk Markdown file (208 KB) | 512 MiB (at the limit, cache and heap grown into it; no OOM) | 395 to 484 MiB cgroup peak; 333 to 399 MiB anon (runs vary with when the model load coincides with a GC) |
+| ingestion time, same file | 268 s | 292 to 383 s |
+| peak, 25 MB DOCX, 1,738 chunks | not measured (extrapolates to the limit) | 499 to 512 MiB cgroup peak; 435 to 470 MiB anon; 1,110 to 1,188 s |
+| memory after ingestion (model stays loaded) | about 450 MiB | 235 to 255 MiB anon |
+
+Honest reading: the 512 MB limit is respected with no OOM kill in any run, but the largest uploads run close to it (the 25 MB file costs about 25 MB of byte array plus parser copies). The hot spots were, in order: the 25 MB file read twice (fixed: sequential read into one array, collected before embedding), the ONNX Runtime memory arena and a pre-packed second copy of the weights, 16-row batches (attention matrices of 16 x 12 x 512 x 512 floats), glibc not returning freed memory (`malloc_trim`). If SnapDeploy kills the container for memory, lower `Embeddings__BatchSize` to 2, `Documents__Limits__Byok__MaxFileBytes` (for example 10485760) or `Documents__Ingestion__MaxChunksPerDocument`.
+
+Settings (all configuration; defaults are in `appsettings.Production.json` and the `Dockerfile`):
+
+| Setting | Value | Why |
+|---|---|---|
+| `Embeddings__BatchSize` | 4 (Production; 16 elsewhere) | attention intermediates grow with the batch |
+| `Embeddings__UseCpuMemoryArena`, `Embeddings__UseMemoryPattern` | `false` | the ORT arena never gives memory back (arena on is about 30% faster but about 60 MiB larger) |
+| `Embeddings__LowMemoryLoad` | `true` | weights bypass the arena, no pre-packed copy |
+| `Embeddings__TrimNativeHeap` | `true` | `malloc_trim` after the model loads and every 20 batches |
+| `Embeddings__IntraOpThreads` | 0 = the cgroup CPU count (1 at 0.25 vCPU) | more threads only get throttled |
+| `DOTNET_gcServer=0`, `DOTNET_gcConcurrent=0`, `DOTNET_GCConserveMemory=7`, `DOTNET_GCgen0size=0x1000000` | image defaults | workstation, non-concurrent GC, small gen0 |
+
+At 0.25 vCPU the throughput is about 1 chunk per second; nothing in the code wastes CPU, the model simply needs it. The process logs `managed heap` and `process working set` when an ingestion finishes.
+
+### S10. What may break on SnapDeploy (verify at the first deploy)
+- The edge's forwarded headers, `Host` for health checks and probe behaviour (S4).
+- Port 5432 to Neon and 587 to Brevo (outbound filtering); `PORT` assignment.
+- Build time and memory of the Docker build on the free tier (the model download stage and the .NET publish need a few GB of disk and several minutes).
+- Ingestion of large documents is slow (S1) and the 100 container-hours budget is consumed by long ingestions.
+- The 429-per-IP rule when the Vercel UI polls or many users share Vercel's egress IPs.
+
+---
+
+## Azure Container Apps (alternative)
+
+Everything below this line is the Azure path (`infra/`, `.github/workflows/deploy.yml`); it is unchanged and stays skipped until its variables exist. Sections 2.4 to 2.7 (Neon, Brevo, OpenRouter, certificate) are shared with SnapDeploy.
 
 What runs where:
 

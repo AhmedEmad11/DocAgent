@@ -25,6 +25,13 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-21: SnapDeploy adaptation (build 0 warnings, 685 tests pass, 8 skipped)
+- `PORT` support (`ListenPort`, maps to `HTTP_PORTS`, default 8080, invalid value stops startup); `Database:MigrateOnStartup` (default false, Production env sets true on SnapDeploy) runs migrations under a Postgres advisory lock (`MigrationRunner`, shared with `--migrate`), fails startup on error; `ForwardedHeaders:AssumeHttps` for edges without `X-Forwarded-Proto`.
+- 512 MB fit: Production embeddings `BatchSize=4`, ONNX arena and memory pattern off, glibc `malloc_trim` after model load and every 20 batches (`NativeHeap`), `LowMemoryLoad`; staged upload read into one array + LOH compaction; Dockerfile GC settings (non-concurrent, `GCConserveMemory=7`, 16 MB gen0). Measured at `--memory 512m --cpus 0.25`: idle 75 MiB; 403-chunk file peak 395–484 MiB (cgroup, 333–399 MiB anon); 1,738-chunk 23 MB DOCX peak 499–512 MiB with no OOM kill; ~1 chunk/s. The ≤380 MiB target is met only for small files; mitigations documented.
+- Ingestion on graceful shutdown requeues the running job without counting an attempt; completion log includes heap and working set.
+- `docs/DEPLOYMENT.md`: SnapDeploy section first (limits, env var table, migrations, smoke checklist, OAuth, sleep, memory); Azure kept as the alternative. README deploy section updated.
+- Tests: `SnapDeployHostingTests` (PORT, MigrateOnStartup, advisory lock, AssumeHttps) and a shutdown-release test.
+
 ### 2026-11-21: Phase 9.0 (frontend skeleton + CI) done
 - SRS §10 and the Phase 9 plan approved by the stakeholder (commit 77a0ce4).
 - `web/`: Next.js 16.4.6 App Router + TypeScript, React 19.3.1, Tailwind 4.3.5, shadcn/ui config (neutral, one blue accent, text wordmark), next-intl 4.15.3 with `/en` and `/ar` (`dir="rtl"`, Noto Sans Arabic, Western digits), dark mode following the system with a toggle, app shell (skip link, header, disabled nav placeholders, footer), landing, privacy, localized 404 and error pages. Security headers and a per-request CSP nonce (`src/proxy.ts`), lazy zod env schema (not used until 9.1). Exact pins + lockfile, Node 24 (`.nvmrc`).

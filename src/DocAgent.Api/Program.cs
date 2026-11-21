@@ -23,13 +23,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-// Deploy step: `DocAgent.Api --migrate` applies the EF Core migrations and exits (production does not migrate at startup).
+// Deploy step: `DocAgent.Api --migrate` applies the EF Core migrations and exits (production migrates at startup only with Database:MigrateOnStartup=true).
 if (MigrateCommand.IsRequested(args))
 {
     return await MigrateCommand.RunAsync(args, Console.Out);
 }
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Container hosts that assign the port (SnapDeploy) pass it as PORT; the image default is 8080.
+ListenPort.Apply(builder.Configuration);
 
 // No "Server: Kestrel" header (OWASP API8).
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
@@ -200,7 +203,7 @@ if (app.Environment.IsDevelopment())
 
 if (app.Configuration.GetValue("HttpsRedirection:Enabled", true))
 {
-    // Off in production behind Azure Container Apps: the ingress already redirects http to https (allowInsecure=false), and the in-cluster health
+    // Off in production behind a TLS-terminating host (Azure Container Apps, SnapDeploy): the edge already serves https, and the platform health
     // probes use plain http without X-Forwarded-Proto, so redirecting them would only produce a redirect with no port to point to.
     app.UseHttpsRedirection();
 }

@@ -170,6 +170,28 @@ public sealed class IngestionRecoveryTests(PostgresFixture postgres)
         Assert.False(await db.DocumentUploads.AnyAsync(u => u.DocumentId == id));
     }
 
+    [Fact]
+    public async Task A_shutdown_during_ingestion_puts_the_job_back_in_the_queue_without_using_up_an_attempt()
+    {
+        _ = ModelLocator.Directory;
+        var cs = await TestDatabase.CreateMigratedAsync(postgres);
+        var blocking = new BlockingEmbeddingGenerator();
+        var factory = new DocAgentApiFactory(cs, new Dictionary<string, string?> { ["Documents:Ingestion:PollIntervalSeconds"] = "1" },
+            configureServices: services => services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(blocking));
+        var user = await DocumentTestHelpers.CreateUserAsync(factory);
+        var id = await user.UploadOkAsync("a note that is still being embedded when the container goes to sleep"u8.ToArray(), "sleepy.txt");
+        await blocking.Entered.Task.WaitAsync(TimeSpan.FromSeconds(60));
+
+        await factory.DisposeAsync(); // the host stops: the worker's token is cancelled while the embedding is running
+
+        await using var db = TestDatabase.CreateContext(cs);
+        var job = await db.IngestionJobs.IgnoreQueryFilters().AsNoTracking().SingleAsync(j => j.DocumentId == id);
+        Assert.Equal(IngestionJobState.Queued, job.State);
+        Assert.Equal(0, job.Attempts);
+        Assert.Equal(DocumentStatus.Pending, (await db.Documents.IgnoreQueryFilters().AsNoTracking().SingleAsync(d => d.Id == id)).Status);
+        Assert.True(await db.DocumentUploads.AnyAsync(u => u.DocumentId == id)); // bytes kept for the next start
+    }
+
     private static async Task WaitAsync(Func<Task<bool>> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(90);
@@ -182,6 +204,22 @@ public sealed class IngestionRecoveryTests(PostgresFixture postgres)
 
             await Task.Delay(250);
         }
+    }
+
+    private sealed class BlockingEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<float>>
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(
+            IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            Entered.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return [];
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+        public void Dispose() { }
     }
 
     private sealed class FlakyEmbeddingGenerator(int failures) : IEmbeddingGenerator<string, Embedding<float>>

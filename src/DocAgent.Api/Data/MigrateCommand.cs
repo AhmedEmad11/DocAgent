@@ -1,11 +1,8 @@
-using DocAgent.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-
 namespace DocAgent.Api.Data;
 
 /// <summary>
 /// <c>DocAgent.Api --migrate</c> (the container image: <c>docker run IMAGE --migrate</c>): applies pending EF Core migrations and exits.
-/// It is the production deploy step (Phase 8): the app itself never migrates outside Development/Testing. It needs only the connection
+/// It is the production deploy step (Phase 8). Outside Development/Testing the app itself migrates only when <c>Database:MigrateOnStartup=true</c> (hosts without a pre-deploy hook, e.g. SnapDeploy). It needs only the connection
 /// string (<c>ConnectionStrings__docagentdb</c> environment variable or <c>--ConnectionStrings:docagentdb=...</c>), not the other production secrets,
 /// and never prints it. Exit code 0 = database up to date, 1 = failed, 2 = no connection string.
 /// </summary>
@@ -35,23 +32,11 @@ public static class MigrateCommand
 
         try
         {
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseNpgsql(connectionString, npgsql => npgsql.UseVector().CommandTimeout((int)Timeout.TotalSeconds))
-                .Options;
-            await using var db = new AppDbContext(options);
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(Timeout);
-
-            var pending = (await db.Database.GetPendingMigrationsAsync(timeout.Token)).ToList();
-            if (pending.Count == 0)
-            {
-                await output.WriteLineAsync("Database is up to date; nothing to apply.");
-                return 0;
-            }
-
-            await output.WriteLineAsync($"Applying {pending.Count} migration(s): {string.Join(", ", pending)}");
-            await db.Database.MigrateAsync(timeout.Token);
-            await output.WriteLineAsync("Migrations applied.");
+            var applied = await MigrationRunner.ApplyAsync(
+                connectionString, Timeout,
+                pending => output.WriteLine($"Applying {pending.Count} migration(s): {string.Join(", ", pending)}"),
+                cancellationToken);
+            await output.WriteLineAsync(applied.Count == 0 ? "Database is up to date; nothing to apply." : "Migrations applied.");
             return 0;
         }
         catch (Exception ex)

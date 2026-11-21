@@ -18,11 +18,14 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
     private readonly EmbeddingTokenizer _tokenizer;
     private readonly int _maxSequenceLength;
     private readonly int _batchSize;
+    private readonly bool _trimNativeHeap;
+    private const int TrimEveryBatches = 20;
     private readonly string _outputName;
     private readonly bool _needsTokenTypeIds;
     private readonly EmbeddingGeneratorMetadata _metadata;
 
-    public OnnxEmbeddingGenerator(string modelDirectory, EmbeddingTokenizer tokenizer, int maxSequenceLength = 512, int batchSize = 16, int intraOpThreads = 0)
+    public OnnxEmbeddingGenerator(string modelDirectory, EmbeddingTokenizer tokenizer, int maxSequenceLength = 512, int batchSize = 16, int intraOpThreads = 0,
+        bool useCpuMemoryArena = true, bool useMemoryPattern = true, bool trimNativeHeap = true, bool lowMemoryLoad = false)
     {
         var onnx = Path.Combine(modelDirectory, EmbeddingOptions.OnnxFileName);
         if (!File.Exists(onnx))
@@ -33,12 +36,18 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
         _tokenizer = tokenizer;
         _maxSequenceLength = maxSequenceLength;
         _batchSize = Math.Max(1, batchSize);
-        _session = new InferenceSession(onnx, CreateSessionOptions(intraOpThreads));
+        _trimNativeHeap = trimNativeHeap;
+        _session = new InferenceSession(onnx, CreateSessionOptions(intraOpThreads, useCpuMemoryArena, useMemoryPattern, lowMemoryLoad));
         _needsTokenTypeIds = _session.InputMetadata.ContainsKey("token_type_ids");
         // "last_hidden_state" is [batch, sequence, 384] (token embeddings); we pool it ourselves.
         _outputName = _session.OutputMetadata.ContainsKey("last_hidden_state")
             ? "last_hidden_state"
             : _session.OutputMetadata.Keys.First();
+        if (_trimNativeHeap)
+        {
+            NativeHeap.Trim(); // loading the model needed two copies of its weights for a moment
+        }
+
         _metadata = new EmbeddingGeneratorMetadata(EmbeddingOptions.ModelName, defaultModelId: EmbeddingOptions.ModelName, defaultModelDimensions: Dimensions);
     }
 
@@ -47,14 +56,22 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
     /// a dozen spinning threads were throttled 96% of the time and embedding was more than 10x slower. .NET's <see cref="Environment.ProcessorCount"/>
     /// honours the cgroup limit, so use it (0 = that value), and do not let idle workers spin.
     /// </summary>
-    private static SessionOptions CreateSessionOptions(int intraOpThreads)
+    private static SessionOptions CreateSessionOptions(int intraOpThreads, bool useCpuMemoryArena, bool useMemoryPattern, bool lowMemoryLoad)
     {
         var options = new SessionOptions
         {
             IntraOpNumThreads = intraOpThreads > 0 ? intraOpThreads : Math.Max(1, Environment.ProcessorCount),
             InterOpNumThreads = 1,
+            EnableCpuMemArena = useCpuMemoryArena,
+            EnableMemoryPattern = useMemoryPattern,
         };
         options.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
+        if (lowMemoryLoad)
+        {
+            // Weights go straight to the allocator instead of the arena, and no pre-packed second copy of them is kept.
+            options.AddSessionConfigEntry("session.use_device_allocator_for_initializers", "1");
+            options.AddSessionConfigEntry("session.disable_prepacking", "1");
+        }
         return options;
     }
 
@@ -78,6 +95,11 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
             cancellationToken.ThrowIfCancellationRequested();
             var indices = order.Skip(start).Take(_batchSize).ToArray();
             var batch = RunBatch(indices.Select(i => tokens[i]).ToArray());
+            if (_trimNativeHeap && (start / _batchSize) % TrimEveryBatches == TrimEveryBatches - 1)
+            {
+                NativeHeap.Trim();
+            }
+
             for (var k = 0; k < indices.Length; k++)
             {
                 vectors[indices[k]] = batch[k];
@@ -87,6 +109,11 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
         foreach (var vector in vectors)
         {
             result.Add(new Embedding<float>(vector));
+        }
+
+        if (_trimNativeHeap)
+        {
+            NativeHeap.Trim();
         }
 
         return Task.FromResult(result);
@@ -138,15 +165,18 @@ public sealed class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embeddi
                 $"Unexpected embedding model output shape [{string.Join(",", hidden.Dimensions.ToArray())}]; expected [batch, sequence, {Dimensions}].");
         }
 
+        // The tensor's own buffer (row-major [rows, length, Dimensions]) is read directly: the multi-dimensional indexer is slow at 0.25 vCPU.
+        ReadOnlySpan<float> data = hidden is DenseTensor<float> dense ? dense.Buffer.Span : hidden.ToArray();
         var result = new float[rows][];
         for (var r = 0; r < rows; r++)
         {
             var pooled = new float[Dimensions];
             for (var c = 0; c < batch[r].Length; c++)
             {
+                var token = data.Slice((r * length + c) * Dimensions, Dimensions);
                 for (var d = 0; d < Dimensions; d++)
                 {
-                    pooled[d] += hidden[r, c, d];
+                    pooled[d] += token[d];
                 }
             }
 

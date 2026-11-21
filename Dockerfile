@@ -1,4 +1,4 @@
-# DocAgent API image for Azure Container Apps (Phase 8). Build from the repository root:
+# DocAgent API image (Phase 8): SnapDeploy free tier (512 MB / 0.25 vCPU, primary) or Azure Container Apps. Build from the repository root:
 #   docker build -t docagent-api .
 # Run the deploy-step migrations with the same image:  docker run --rm -e ConnectionStrings__docagentdb=... docagent-api --migrate
 
@@ -27,9 +27,15 @@ WORKDIR /app
 COPY --from=build /app ./
 COPY --from=models /models ./models
 
-# Container Apps ingress targets 8080 (the aspnet image already sets ASPNETCORE_HTTP_PORTS=8080); the image's built-in non-root user "app" (UID 1654) runs the process.
+# Listens on 8080 (the aspnet image sets ASPNETCORE_HTTP_PORTS=8080; Container Apps targets it) unless the host passes PORT (SnapDeploy): the app then listens on that.
+# The image's built-in non-root user "app" (UID 1654) runs the process.
+# Memory for a 512 MB container: workstation, non-concurrent GC (no background GC thread/heap copies), conserve-memory mode, a 16 MB gen0 budget
+# (so garbage is collected instead of piling up next to the native ONNX Runtime memory). All overridable at run time.
 ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_gcServer=0 \
+    DOTNET_gcConcurrent=0 \
+    DOTNET_GCConserveMemory=7 \
+    DOTNET_GCgen0size=0x1000000 \
     DOTNET_TieredPGO=0 \
     DOTNET_EnableDiagnostics=0
 EXPOSE 8080

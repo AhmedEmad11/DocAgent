@@ -159,6 +159,24 @@ public static class HttpHardening
         return services;
     }
 
-    public static IApplicationBuilder UseForwardedHeadersIfEnabled(this IApplicationBuilder app, IConfiguration configuration) =>
-        configuration.GetValue("ForwardedHeaders:Enabled", false) ? app.UseForwardedHeaders() : app;
+    public static IApplicationBuilder UseForwardedHeadersIfEnabled(this IApplicationBuilder app, IConfiguration configuration)
+    {
+        if (configuration.GetValue("ForwardedHeaders:Enabled", false))
+        {
+            app.UseForwardedHeaders();
+        }
+
+        // For a host whose edge terminates TLS but sends no X-Forwarded-Proto (not verified for SnapDeploy, docs/DEPLOYMENT.md): treat every request as https,
+        // so the OAuth redirect_uri the app builds is https://..., HSTS is sent and Secure cookies work. Only for deployments reachable solely through that edge.
+        if (configuration.GetValue("ForwardedHeaders:AssumeHttps", false))
+        {
+            app.Use((context, next) =>
+            {
+                context.Request.Scheme = Uri.UriSchemeHttps;
+                return next();
+            });
+        }
+
+        return app;
+    }
 }

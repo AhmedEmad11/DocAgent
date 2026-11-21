@@ -29,4 +29,19 @@ public sealed class EmbeddingOptions
 
     /// <summary>ONNX Runtime intra-op threads. 0 = the CPU count the process may use (honours container CPU limits).</summary>
     public int IntraOpThreads { get; set; }
+
+    /// <summary>
+    /// ONNX Runtime's CPU memory arena keeps every block it ever grew to (it never returns memory to the OS); with large attention
+    /// intermediates that pins hundreds of MB on a small container. Off = plain allocations that are freed after each batch (slightly slower, much lower resident set).
+    /// </summary>
+    public bool UseCpuMemoryArena { get; set; } = true;
+
+    /// <summary>ONNX Runtime memory-pattern planning: it pre-allocates one block sized for the largest input seen. Off for small containers.</summary>
+    public bool UseMemoryPattern { get; set; } = true;
+
+    /// <summary>Return freed native memory to the OS after the model loads and during embedding (glibc <c>malloc_trim</c>; Linux only). Keeps the resident set near the working set.</summary>
+    public bool TrimNativeHeap { get; set; } = true;
+
+    /// <summary>Lower the peak while the model loads: weights bypass the arena and are not pre-packed into a second copy (a little slower per batch).</summary>
+    public bool LowMemoryLoad { get; set; }
 }
