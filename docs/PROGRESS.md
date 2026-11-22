@@ -25,9 +25,10 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
-### 2026-11-22: Dockerfile fixes for SnapDeploy (2 stages, arm64)
+### 2026-11-22: Dockerfile fixes for SnapDeploy (2 stages, arm64, 3,000 bytes)
 - SnapDeploy Small (free) containers refuse Dockerfiles with more than 2 build stages; the first deploy failed on this. The embedding-model download moved into the build stage (still the first layer, so it stays cached); the runtime image content is unchanged.
 - The first SnapDeploy run then failed with "assembly architecture is not compatible": SnapDeploy builds and runs on arm64, and the image hard-coded `-r linux-x64`. The RID now follows BuildKit's `TARGETARCH` (arm64 → `linux-arm64`, otherwise `linux-x64`); ONNX Runtime ships linux-arm64 natives. Memory figures were measured on x64.
+- SnapDeploy Small also caps the Dockerfile at 3,000 bytes (it was 3,081): comments shortened, 1,963 bytes now. CI `docker-build` checks both limits (≤ 2 stages, ≤ 3,000 bytes).
 
 ### 2026-11-21: SnapDeploy adaptation (build 0 warnings, 685 tests pass, 8 skipped)
 - `PORT` support (`ListenPort`, maps to `HTTP_PORTS`, default 8080, invalid value stops startup); `Database:MigrateOnStartup` (default false, Production env sets true on SnapDeploy) runs migrations under a Postgres advisory lock (`MigrationRunner`, shared with `--migrate`), fails startup on error; `ForwardedHeaders:AssumeHttps` for edges without `X-Forwarded-Proto`.

@@ -1,38 +1,29 @@
-# DocAgent API image (Phase 8): SnapDeploy free tier (512 MB / 0.25 vCPU, primary) or Azure Container Apps. Build from the repository root:
-#   docker build -t docagent-api .
-# Run the deploy-step migrations with the same image:  docker run --rm -e ConnectionStrings__docagentdb=... docagent-api --migrate
+# DocAgent API image. Build: docker build -t docagent-api .   Migrate: docker run --rm -e ConnectionStrings__docagentdb=... docagent-api --migrate
+# Kept to 2 stages and under 3,000 bytes (SnapDeploy free tier limits); see docs/DEPLOYMENT.md.
 
-# Two stages only: SnapDeploy's free (Small) containers refuse Dockerfiles with more than 2 build stages.
-# ---- 1. Build: embedding model download, then restore (cached until a project file changes) and publish
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-# Runtime-specific build: without a RID the publish folder carries ONNX Runtime natives for every OS (about 240 MB of dead weight).
-# The RID follows the build platform (BuildKit's TARGETARCH): SnapDeploy builds and runs on arm64, Azure Container Apps on amd64.
-# A RID-specific app assembly will not load on the other architecture, so the two must match.
+# The RID follows the build platform: SnapDeploy is arm64, Azure Container Apps amd64 (a RID-specific app dll loads only on its own arch).
 ARG TARGETARCH
 WORKDIR /src
-# Embedding model (SRS D9, D30): pinned Hugging Face revision, SHA-256 verified by the script. First, so the layer stays cached until the script changes.
+# Embedding model (SRS D9, D30): pinned revision, SHA-256 verified. First, so the layer stays cached.
 COPY scripts/download-models.sh scripts/download-models.sh
 RUN bash scripts/download-models.sh /models/multilingual-e5-small
 COPY src/DocAgent.Api/DocAgent.Api.csproj src/DocAgent.Api/
 COPY src/DocAgent.Core/DocAgent.Core.csproj src/DocAgent.Core/
 COPY src/DocAgent.Infrastructure/DocAgent.Infrastructure.csproj src/DocAgent.Infrastructure/
 COPY src/DocAgent.ServiceDefaults/DocAgent.ServiceDefaults.csproj src/DocAgent.ServiceDefaults/
-RUN RID=$([ "$TARGETARCH" = "arm64" ] && echo linux-arm64 || echo linux-x64) && echo "RID=$RID" \
+RUN RID=$([ "$TARGETARCH" = "arm64" ] && echo linux-arm64 || echo linux-x64) \
     && dotnet restore src/DocAgent.Api/DocAgent.Api.csproj -r $RID
 COPY src/ src/
 RUN RID=$([ "$TARGETARCH" = "arm64" ] && echo linux-arm64 || echo linux-x64) \
     && dotnet publish src/DocAgent.Api/DocAgent.Api.csproj -c Release -r $RID --no-self-contained -o /app --no-restore /p:UseAppHost=false
 
-# ---- 2. Runtime: ASP.NET Core 10 on Debian (glibc: ONNX Runtime has no musl build), non-root
+# Runtime: Debian (ONNX Runtime needs glibc), non-root user "app".
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app ./
 COPY --from=build /models ./models
-
-# Listens on 8080 (the aspnet image sets ASPNETCORE_HTTP_PORTS=8080; Container Apps targets it) unless the host passes PORT (SnapDeploy): the app then listens on that.
-# The image's built-in non-root user "app" (UID 1654) runs the process.
-# Memory for a 512 MB container: workstation, non-concurrent GC (no background GC thread/heap copies), conserve-memory mode, a 16 MB gen0 budget
-# (so garbage is collected instead of piling up next to the native ONNX Runtime memory). All overridable at run time.
+# Listens on 8080, or on PORT when the host sets it (SnapDeploy). GC tuned for a 512 MB container; all overridable.
 ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_gcServer=0 \
     DOTNET_gcConcurrent=0 \
@@ -42,5 +33,4 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_EnableDiagnostics=0
 EXPOSE 8080
 USER app
-# Health endpoints exist (/health/live, /health/ready); Container Apps probes them (infra/main.bicep), so no HEALTHCHECK instruction here.
 ENTRYPOINT ["dotnet", "DocAgent.Api.dll"]

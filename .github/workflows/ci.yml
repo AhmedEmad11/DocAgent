@@ -54,6 +54,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: SnapDeploy free-tier Dockerfile limits (max 2 stages, max 3000 bytes)
+        run: |
+          stages=$(grep -ci '^FROM ' Dockerfile); bytes=$(wc -c < Dockerfile)
+          echo "stages=$stages bytes=$bytes"
+          [ "$stages" -le 2 ] && [ "$bytes" -le 3000 ]
+
       - name: Build image
         run: docker build --tag docagent-api:ci .
 
