@@ -25,6 +25,9 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-22: Dockerfile reduced to 2 stages for SnapDeploy
+- SnapDeploy Small (free) containers refuse Dockerfiles with more than 2 build stages; the first deploy failed on this. The embedding-model download moved into the build stage (still the first layer, so it stays cached); the runtime image content is unchanged.
+
 ### 2026-11-21: SnapDeploy adaptation (build 0 warnings, 685 tests pass, 8 skipped)
 - `PORT` support (`ListenPort`, maps to `HTTP_PORTS`, default 8080, invalid value stops startup); `Database:MigrateOnStartup` (default false, Production env sets true on SnapDeploy) runs migrations under a Postgres advisory lock (`MigrationRunner`, shared with `--migrate`), fails startup on error; `ForwardedHeaders:AssumeHttps` for edges without `X-Forwarded-Proto`.
 - 512 MB fit: Production embeddings `BatchSize=4`, ONNX arena and memory pattern off, glibc `malloc_trim` after model load and every 20 batches (`NativeHeap`), `LowMemoryLoad`; staged upload read into one array + LOH compaction; Dockerfile GC settings (non-concurrent, `GCConserveMemory=7`, 16 MB gen0). Measured at `--memory 512m --cpus 0.25`: idle 75 MiB; 403-chunk file peak 395–484 MiB (cgroup, 333–399 MiB anon); 1,738-chunk 23 MB DOCX peak 499–512 MiB with no OOM kill; ~1 chunk/s. The ≤380 MiB target is met only for small files; mitigations documented.

@@ -2,17 +2,15 @@
 #   docker build -t docagent-api .
 # Run the deploy-step migrations with the same image:  docker run --rm -e ConnectionStrings__docagentdb=... docagent-api --migrate
 
-# ---- 1. Embedding model (SRS D9, D30): pinned Hugging Face revision, SHA-256 verified by the script. Own stage so it is cached until the script changes.
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS models
-WORKDIR /src
-COPY scripts/download-models.sh scripts/download-models.sh
-RUN bash scripts/download-models.sh /models/multilingual-e5-small
-
-# ---- 2. Restore (cached until a project file changes) and publish
+# Two stages only: SnapDeploy's free (Small) containers refuse Dockerfiles with more than 2 build stages.
+# ---- 1. Build: embedding model download, then restore (cached until a project file changes) and publish
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-# Runtime-specific build: without a RID the publish folder carries ONNX Runtime natives for every OS (about 240 MB of dead weight). Container Apps runs linux-x64.
+# Runtime-specific build: without a RID the publish folder carries ONNX Runtime natives for every OS (about 240 MB of dead weight). The host runs linux-x64.
 ARG RID=linux-x64
 WORKDIR /src
+# Embedding model (SRS D9, D30): pinned Hugging Face revision, SHA-256 verified by the script. First, so the layer stays cached until the script changes.
+COPY scripts/download-models.sh scripts/download-models.sh
+RUN bash scripts/download-models.sh /models/multilingual-e5-small
 COPY src/DocAgent.Api/DocAgent.Api.csproj src/DocAgent.Api/
 COPY src/DocAgent.Core/DocAgent.Core.csproj src/DocAgent.Core/
 COPY src/DocAgent.Infrastructure/DocAgent.Infrastructure.csproj src/DocAgent.Infrastructure/
@@ -21,11 +19,11 @@ RUN dotnet restore src/DocAgent.Api/DocAgent.Api.csproj -r $RID
 COPY src/ src/
 RUN dotnet publish src/DocAgent.Api/DocAgent.Api.csproj -c Release -r $RID --no-self-contained -o /app --no-restore /p:UseAppHost=false
 
-# ---- 3. Runtime: ASP.NET Core 10 on Debian (glibc: ONNX Runtime has no musl build), non-root
+# ---- 2. Runtime: ASP.NET Core 10 on Debian (glibc: ONNX Runtime has no musl build), non-root
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app ./
-COPY --from=models /models ./models
+COPY --from=build /models ./models
 
 # Listens on 8080 (the aspnet image sets ASPNETCORE_HTTP_PORTS=8080; Container Apps targets it) unless the host passes PORT (SnapDeploy): the app then listens on that.
 # The image's built-in non-root user "app" (UID 1654) runs the process.
