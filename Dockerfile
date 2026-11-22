@@ -5,8 +5,10 @@
 # Two stages only: SnapDeploy's free (Small) containers refuse Dockerfiles with more than 2 build stages.
 # ---- 1. Build: embedding model download, then restore (cached until a project file changes) and publish
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-# Runtime-specific build: without a RID the publish folder carries ONNX Runtime natives for every OS (about 240 MB of dead weight). The host runs linux-x64.
-ARG RID=linux-x64
+# Runtime-specific build: without a RID the publish folder carries ONNX Runtime natives for every OS (about 240 MB of dead weight).
+# The RID follows the build platform (BuildKit's TARGETARCH): SnapDeploy builds and runs on arm64, Azure Container Apps on amd64.
+# A RID-specific app assembly will not load on the other architecture, so the two must match.
+ARG TARGETARCH
 WORKDIR /src
 # Embedding model (SRS D9, D30): pinned Hugging Face revision, SHA-256 verified by the script. First, so the layer stays cached until the script changes.
 COPY scripts/download-models.sh scripts/download-models.sh
@@ -15,9 +17,11 @@ COPY src/DocAgent.Api/DocAgent.Api.csproj src/DocAgent.Api/
 COPY src/DocAgent.Core/DocAgent.Core.csproj src/DocAgent.Core/
 COPY src/DocAgent.Infrastructure/DocAgent.Infrastructure.csproj src/DocAgent.Infrastructure/
 COPY src/DocAgent.ServiceDefaults/DocAgent.ServiceDefaults.csproj src/DocAgent.ServiceDefaults/
-RUN dotnet restore src/DocAgent.Api/DocAgent.Api.csproj -r $RID
+RUN RID=$([ "$TARGETARCH" = "arm64" ] && echo linux-arm64 || echo linux-x64) && echo "RID=$RID" \
+    && dotnet restore src/DocAgent.Api/DocAgent.Api.csproj -r $RID
 COPY src/ src/
-RUN dotnet publish src/DocAgent.Api/DocAgent.Api.csproj -c Release -r $RID --no-self-contained -o /app --no-restore /p:UseAppHost=false
+RUN RID=$([ "$TARGETARCH" = "arm64" ] && echo linux-arm64 || echo linux-x64) \
+    && dotnet publish src/DocAgent.Api/DocAgent.Api.csproj -c Release -r $RID --no-self-contained -o /app --no-restore /p:UseAppHost=false
 
 # ---- 2. Runtime: ASP.NET Core 10 on Debian (glibc: ONNX Runtime has no musl build), non-root
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
