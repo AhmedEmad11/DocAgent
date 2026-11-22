@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using DocAgent.Core.Auth;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace DocAgent.Api.Auth;
@@ -18,6 +19,8 @@ public static class AuthRateLimiting
     {
         var permitLimit = config.GetValue("RateLimiting:Auth:PermitLimit", 10);
         var windowSeconds = config.GetValue("RateLimiting:Auth:WindowSeconds", 60);
+        var bffSecret = config["Bff:SharedSecret"];
+        TrustedClientIp.ValidateConfiguredSecret(bffSecret); // A4: refuse a short secret at startup
 
         services.AddRateLimiter(options =>
         {
@@ -28,7 +31,12 @@ public static class AuthRateLimiting
                     return RateLimitPartition.GetNoLimiter("none");
                 }
 
-                var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                // A4: behind the Next.js BFF the visitor's address arrives in X-Client-IP, trusted only with the matching shared secret.
+                var ip = TrustedClientIp.Resolve(
+                    context.Connection.RemoteIpAddress?.ToString(),
+                    context.Request.Headers[TrustedClientIp.IpHeader].ToString(),
+                    context.Request.Headers[TrustedClientIp.SecretHeader].ToString(),
+                    bffSecret);
                 return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = permitLimit,

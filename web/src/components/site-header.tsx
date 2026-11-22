@@ -1,12 +1,18 @@
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getCurrentUser } from "@/lib/auth/current-user";
 
-const navItems = ["documents", "ask", "settings", "account"] as const;
+const placeholderItems = ["ask", "settings", "account"] as const;
+const linkClass =
+  "text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none";
 
-export function SiteHeader() {
-  const t = useTranslations();
+export async function SiteHeader() {
+  const t = await getTranslations();
+  const user = await getCurrentUser();
+  const signedIn = user.status === "ok";
   return (
     <header className="border-b border-border">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
@@ -16,17 +22,44 @@ export function SiteHeader() {
         <div className="flex items-center gap-1">
           <LocaleSwitcher />
           <ThemeToggle />
+          {signedIn ? <SignOutButton /> : null}
         </div>
-        {/* Placeholders until the signed-in pages exist (9.1 onwards). */}
         <nav aria-label={t("Nav.label")} className="w-full sm:w-auto">
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {navItems.map((item) => (
-              <li key={item}>
-                <span aria-disabled="true" title={t("Common.comingSoon")}>
-                  {t(`Nav.${item}`)}
-                </span>
-              </li>
-            ))}
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {signedIn ? (
+              <>
+                <li>
+                  <Link href="/documents" className={linkClass}>
+                    {t("Nav.documents")}
+                  </Link>
+                </li>
+                {/* Placeholders until their pages exist (9.3, 9.5). */}
+                {placeholderItems.map((item) => (
+                  <li key={item}>
+                    <span
+                      aria-disabled="true"
+                      title={t("Common.comingSoon")}
+                      className="text-muted-foreground"
+                    >
+                      {t(`Nav.${item}`)}
+                    </span>
+                  </li>
+                ))}
+              </>
+            ) : (
+              <>
+                <li>
+                  <Link href="/sign-in" className={linkClass}>
+                    {t("Auth.signIn.title")}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/register" className={linkClass}>
+                    {t("Auth.register.nav")}
+                  </Link>
+                </li>
+              </>
+            )}
           </ul>
         </nav>
       </div>

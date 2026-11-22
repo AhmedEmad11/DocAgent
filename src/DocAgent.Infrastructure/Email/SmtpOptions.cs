@@ -7,6 +7,12 @@ public sealed class EmailOptions
     public SmtpOptions Smtp { get; set; } = new();
     public string FromAddress { get; set; } = "noreply@docagent.local";
     public string FromName { get; set; } = "DocAgent";
+
+    /// <summary>
+    /// Plan A5: absolute URL of the UI confirmation page (for example <c>https://ui.example/confirm</c>). When set, the emailed link is
+    /// <c>{ConfirmationUrlBase}?userId=..&amp;code=..</c> and the UI confirms through the API; when empty, the link points at the API endpoint.
+    /// </summary>
+    public string? ConfirmationUrlBase { get; set; }
 }
 
 public sealed class SmtpOptions

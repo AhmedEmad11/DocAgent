@@ -20,11 +20,12 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
 {
     public Task SendConfirmationLinkAsync(AppUser user, string email, string confirmationLink)
     {
-        // Identity passes the link HTML-encoded; decode it for the plain-text part.
-        var plainLink = WebUtility.HtmlDecode(confirmationLink);
+        // Identity passes the link HTML-encoded; decode it for the plain-text part. With Email:ConfirmationUrlBase set the link opens the UI (plan A5).
+        var plainLink = ConfirmationLink.Rewrite(confirmationLink, options.Value.ConfirmationUrlBase);
+        var htmlLink = WebUtility.HtmlEncode(plainLink);
         return SendAsync(email, "Confirm your DocAgent email",
             $"Welcome to DocAgent.\n\nConfirm your email address by opening this link:\n{plainLink}\n\nIf you did not create an account, ignore this message.",
-            $"<p>Welcome to DocAgent.</p><p><a href=\"{confirmationLink}\">Confirm your email address</a></p><p>If you did not create an account, ignore this message.</p>");
+            $"<p>Welcome to DocAgent.</p><p><a href=\"{htmlLink}\">Confirm your email address</a></p><p>If you did not create an account, ignore this message.</p>");
     }
 
     public Task SendPasswordResetCodeAsync(AppUser user, string email, string resetCode) =>

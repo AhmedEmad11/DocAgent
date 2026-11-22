@@ -25,6 +25,12 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-22: Phase 9.1 (authentication and BFF) built; awaiting the stakeholder checkpoint
+- Web: session in a `jose` JWE cookie (AES-256-GCM, httpOnly, SameSite=Lax, `__Host-` on https, 14 days, `SESSION_SECRET_PREVIOUS` rotation, ~2.3 KB, fails loudly above 3,800 chars); token refresh in the proxy and on 401 with single-flight and 10 s reuse; tokens never reach the browser. API client (ProblemDetails, `X-Client-IP` + `X-Bff-Secret`), allowlisted `/api/proxy/[...path]` with Origin check and body cap. Pages: sign-in, register, check-email (resend), confirm (POST button, link scanners cannot consume the code), forgot/reset password, sign-out (POST), `/documents` placeholder; external login with a sealed one-time nonce (login CSRF); safe `next` redirects; en/ar strings (Arabic first draft, review at the checkpoint). New pins: jose 6.2.18, react-hook-form 7.92.0, server-only 0.0.1.
+- API: A2 dev `AllowedReturnUrls` narrowed to the UI callback; A4 `X-Client-IP` trusted only with a matching `Bff:SharedSecret` (constant-time, min 16 chars, unset = off); A5 `Email:ConfirmationUrlBase` (emailed link opens the UI confirm page).
+- A8 findings (code and tests, not yet the live API): register errors are a 400 keyed by Identity codes and duplicate emails are disclosed by the API (UI shows a generic message); unconfirmed accounts can sign in (403 on data endpoints); `/refresh` rotates but does not revoke the old refresh token. Plan and SRS (UI-AUTH-4, §10.6, D41) corrected accordingly.
+- Tests: unit 416 passed (31 new), eval 15; web Vitest 132, Playwright 59 (mock API), lint/typecheck/i18n/build clean, `npm audit` 0. New integration tests (`BffClientIpTests`, `IdentityContractTests`) run in CI (Docker was not running locally). Real-API smoke not yet done.
+
 ### 2026-11-22: Dockerfile fixes for SnapDeploy (2 stages, arm64, 3,000 bytes)
 - SnapDeploy Small (free) containers refuse Dockerfiles with more than 2 build stages; the first deploy failed on this. The embedding-model download moved into the build stage (still the first layer, so it stays cached); the runtime image content is unchanged.
 - The first SnapDeploy run then failed with "assembly architecture is not compatible": SnapDeploy builds and runs on arm64, and the image hard-coded `-r linux-x64`. The RID now follows BuildKit's `TARGETARCH` (arm64 → `linux-arm64`, otherwise `linux-x64`); ONNX Runtime ships linux-arm64 natives. Memory figures were measured on x64.

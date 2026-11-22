@@ -35,20 +35,20 @@
   "Landing": {
     "title": "Ask your documents, get cited answers",
     "description": "DocAgent reads the PDF, Word, text and Markdown files you upload and answers your questions with quotes and page references, so you can check every claim. It can also summarise a document or compare two.",
-    "signInRequired": "You need an account to use DocAgent. Sign-in and registration are coming soon.",
+    "signInRequired": "You need an account to use DocAgent. Create one or sign in to continue.",
     "signIn": "Sign in",
     "register": "Create account",
     "privacyLink": "Read the privacy notice"
   },
   "Privacy": {
     "title": "Privacy",
-    "draftNotice": "This is a placeholder. The final privacy text is added with the sign-in work.",
+    "draftNotice": "This is a placeholder. The final privacy text is added before the public launch.",
     "dataTitle": "What is sent where",
     "demo": "In demo mode, your questions and the matching document excerpts are sent to a free third-party model that may log them.",
     "byok": "If you add your own provider key, your questions and excerpts go to the provider you choose.",
     "originals": "Original files are not kept after they are processed.",
     "cookiesTitle": "Cookies and browser storage",
-    "cookies": "The site uses a session cookie once you sign in and a language cookie. Your theme choice is kept in your browser's local storage. There is no analytics and no tracking."
+    "cookies": "The site uses a session cookie once you sign in, short-lived cookies while you register or sign in with Google or GitHub, and a language cookie. Your theme choice is kept in your browser's local storage. There is no analytics and no tracking."
   },
   "NotFound": {
     "title": "Page not found",
@@ -59,5 +59,116 @@
     "title": "Something went wrong",
     "description": "An unexpected error occurred. You can try again.",
     "retry": "Try again"
+  },
+  "Auth": {
+    "working": "Please wait",
+    "signOut": "Sign out",
+    "fields": {
+      "email": "Email",
+      "password": "Password",
+      "newPassword": "New password",
+      "resetCode": "Reset code"
+    },
+    "rules": {
+      "title": "Your password needs:",
+      "min": "At least 6 characters",
+      "upper": "An uppercase letter (A to Z)",
+      "lower": "A lowercase letter (a to z)",
+      "digit": "A digit (0 to 9)",
+      "symbol": "A symbol, for example ! or #",
+      "met": "met",
+      "unmet": "not met yet"
+    },
+    "signIn": {
+      "title": "Sign in",
+      "submit": "Sign in",
+      "forgot": "Forgot your password?",
+      "noAccount": "No account yet?",
+      "or": "or",
+      "google": "Continue with Google",
+      "github": "Continue with GitHub",
+      "resetDone": "Your password was changed. Sign in with the new password.",
+      "sessionEnded": "Your session ended. Sign in again.",
+      "externalErrors": {
+        "email_not_verified": "Google or GitHub has not verified your email address, so we cannot sign you in with it. Verify it with the provider, or sign in another way.",
+        "no_verified_email": "The provider did not share a verified email address. Sign in with email and password instead.",
+        "external_login_failed": "Signing in with Google or GitHub did not work. Try again, or use your email and password."
+      }
+    },
+    "register": {
+      "title": "Create your account",
+      "nav": "Create account",
+      "description": "Use your email and a password, or continue with Google or GitHub.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?"
+    },
+    "checkEmail": {
+      "title": "Check your email",
+      "sentTo": "We sent a confirmation link to <strong>{email}</strong>. Open it to activate your account.",
+      "sent": "We sent you a confirmation link. Open it to activate your account.",
+      "until": "Until you confirm your email, documents and questions are not available.",
+      "spam": "Nothing arrived? Look in the spam folder, then ask for a new link.",
+      "resend": "Resend confirmation email",
+      "resent": "If this address still needs confirming, we sent a new link.",
+      "toSignIn": "Go to sign in"
+    },
+    "confirm": {
+      "title": "Confirm your email",
+      "description": "Press the button to confirm your email address.",
+      "button": "Confirm email",
+      "success": "Your email address is confirmed.",
+      "continue": "Continue"
+    },
+    "forgot": {
+      "title": "Forgot your password?",
+      "description": "Enter your email. If we find an account with a confirmed email address, we send you a reset code.",
+      "submit": "Send reset code",
+      "sent": "If an account exists for this address, we sent a reset code. Enter it on the next page.",
+      "toReset": "Enter the reset code",
+      "haveCode": "I already have a reset code"
+    },
+    "reset": {
+      "title": "Reset your password",
+      "description": "Enter your email, the code from the email, and a new password.",
+      "codeHint": "Copy the code exactly as it appears in the email.",
+      "submit": "Change password"
+    },
+    "errors": {
+      "emailRequired": "Enter your email address.",
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Enter a password.",
+      "passwordTooLong": "The password is too long.",
+      "codeRequired": "Enter the reset code.",
+      "codeInvalid": "The reset code is not valid.",
+      "rule_min": "The password needs at least 6 characters.",
+      "rule_upper": "The password needs an uppercase letter.",
+      "rule_lower": "The password needs a lowercase letter.",
+      "rule_digit": "The password needs a digit.",
+      "rule_symbol": "The password needs a symbol, for example ! or #.",
+      "rule_unique": "The password needs more different characters.",
+      "network": "Cannot reach the service. Check your connection; the service may be waking up. Try again in a moment.",
+      "rateLimited": "Too many attempts. Try again in a minute.",
+      "rateLimitedAfter": "Too many attempts. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+      "server": "Something went wrong on our side. Try again.",
+      "forbidden": "This request was blocked. Reload the page and try again.",
+      "registerFailed": "We could not create the account with these details.",
+      "registerFailedSignIn": "Already registered? Sign in.",
+      "checkFields": "Check the highlighted fields.",
+      "badCredentials": "Email or password is incorrect, or the email is not confirmed yet.",
+      "lockedOut": "Too many failed sign-in attempts. Wait a few minutes and try again.",
+      "lockedOutReset": "Or reset your password.",
+      "resetInvalid": "The reset code is not valid or has expired. Ask for a new one.",
+      "confirmInvalid": "This confirmation link is not valid or has expired. Sign in and ask for a new one."
+    }
+  },
+  "Account": {
+    "title": "Documents",
+    "email": "Signed in as",
+    "methods": "Linked sign-in providers",
+    "methodsNone": "None (email and password)",
+    "soon": "Your documents will appear here soon.",
+    "unconfirmedTitle": "Confirm your email address first",
+    "unconfirmedBody": "We sent you a link. Until you confirm it, documents and questions are not available.",
+    "checkAgain": "I confirmed it, check again"
   }
 }

@@ -56,4 +56,25 @@ public sealed class ReturnUrlValidatorTests
     {
         Assert.False(ReturnUrlValidator.TryValidate("http://localhost:3000", ["not a url", "javascript:alert(1)"], out _));
     }
+
+    /// <summary>Plan A2: the UI callback URL (with the login-CSRF nonce in the query) is allowed by the real Development settings, and nothing else on that origin.</summary>
+    [Fact]
+    public void Development_settings_allow_exactly_the_ui_callback()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "src", "DocAgent.Api", "appsettings.Development.json")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.NotNull(dir);
+        using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(dir!.FullName, "src", "DocAgent.Api", "appsettings.Development.json")));
+        var allowed = doc.RootElement.GetProperty("Authentication").GetProperty("External").GetProperty("AllowedReturnUrls")
+            .EnumerateArray().Select(e => e.GetString()!).ToArray();
+
+        Assert.True(ReturnUrlValidator.TryValidate("http://localhost:3000/api/auth/external/callback?s=nonce123", allowed, out _));
+        Assert.False(ReturnUrlValidator.TryValidate("http://localhost:3000/", allowed, out _));
+        Assert.False(ReturnUrlValidator.TryValidate("http://localhost:3000/en/documents", allowed, out _));
+        Assert.False(ReturnUrlValidator.TryValidate("http://localhost:3000/api/auth/external/callback-evil", allowed, out _));
+    }
 }

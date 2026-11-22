@@ -3,6 +3,11 @@ import { defineConfig, devices } from "@playwright/test";
 const webPort = 3100;
 const mockApiPort = 4010;
 const baseURL = `http://127.0.0.1:${webPort}`;
+// Placeholders for the e2e run only (never real secrets).
+const e2eEnv = {
+  SESSION_SECRET: "example-only-session-secret-0123456789abcdef",
+  BFF_SHARED_SECRET: "example-only-bff-secret",
+};
 
 // Runs against a production build (`npm run build` first): CSP and headers differ in dev.
 export default defineConfig({
@@ -18,7 +23,11 @@ export default defineConfig({
     {
       command: "node e2e/mock-api/server.mjs",
       url: `http://127.0.0.1:${mockApiPort}/health`,
-      env: { MOCK_API_PORT: String(mockApiPort) },
+      env: {
+        MOCK_API_PORT: String(mockApiPort),
+        MOCK_BFF_SECRET: e2eEnv.BFF_SHARED_SECRET,
+        MOCK_ALLOWED_RETURN: `${baseURL}/api/auth/external/callback`,
+      },
       reuseExistingServer: !process.env.CI,
     },
     {
@@ -27,6 +36,7 @@ export default defineConfig({
       env: {
         DOCAGENT_API_URL: `http://127.0.0.1:${mockApiPort}`,
         NEXT_PUBLIC_SITE_URL: baseURL,
+        ...e2eEnv,
       },
       reuseExistingServer: !process.env.CI,
     },

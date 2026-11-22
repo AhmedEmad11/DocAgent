@@ -153,6 +153,10 @@ builder.Services.AddDocAgentDataProtection(builder.Configuration, builder.Enviro
 // ---- Email ----
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddTransient<IEmailSender<AppUser>, SmtpEmailSender>();
+if (builder.Configuration["Email:ConfirmationUrlBase"] is { Length: > 0 } confirmationBase && !ConfirmationLink.IsValidBase(confirmationBase))
+{
+    throw new InvalidOperationException("Email:ConfirmationUrlBase must be an absolute http(s) URL without a fragment.");
+}
 
 // ---- Rate limiting (SRS SEC-8, D27) ----
 builder.Services.AddAuthRateLimiting(builder.Configuration);

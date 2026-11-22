@@ -4,7 +4,6 @@ import { Link } from "@/i18n/navigation";
 
 export default async function LandingPage() {
   const t = await getTranslations("Landing");
-  const common = await getTranslations("Common");
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -14,12 +13,11 @@ export default async function LandingPage() {
       <p className="text-lg text-muted-foreground">{t("description")}</p>
       <p>{t("signInRequired")}</p>
       <div className="flex flex-wrap gap-3">
-        {/* Disabled until sign-in exists (9.1). */}
-        <Button aria-disabled="true" title={common("comingSoon")}>
-          {t("signIn")}
+        <Button asChild>
+          <Link href="/sign-in">{t("signIn")}</Link>
         </Button>
-        <Button variant="outline" aria-disabled="true" title={common("comingSoon")}>
-          {t("register")}
+        <Button variant="outline" asChild>
+          <Link href="/register">{t("register")}</Link>
         </Button>
       </div>
       <p>
