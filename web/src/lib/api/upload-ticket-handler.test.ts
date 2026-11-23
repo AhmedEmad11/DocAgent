@@ -45,7 +45,7 @@ describe("POST /api/upload/ticket", () => {
     expect(authedApiFetch).toHaveBeenCalledWith("/documents/upload-ticket", { method: "POST" });
   });
 
-  it("answers 401 session_ended without a session and 503 network when the API is unreachable", async () => {
+  it("answers 401 session_ended without a session and 503 api_starting when the API is unreachable", async () => {
     authedApiFetch.mockResolvedValueOnce({ kind: "anonymous" });
     const a = await handleUploadTicket(request());
     expect(a.status).toBe(401);
@@ -53,7 +53,7 @@ describe("POST /api/upload/ticket", () => {
     authedApiFetch.mockResolvedValueOnce({ kind: "network" });
     const n = await handleUploadTicket(request());
     expect(n.status).toBe(503);
-    expect((await n.json()).code).toBe("network");
+    expect((await n.json()).code).toBe("api_starting");
   });
 
   it("passes API problems through in the fixed shape, with Retry-After", async () => {

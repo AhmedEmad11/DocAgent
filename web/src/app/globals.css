@@ -129,3 +129,13 @@ progress.meter::-moz-progress-bar {
     }
   }
 }
+
+/* Indeterminate progress bar of the cold-start notice (UI-GEN-7); not used with reduced motion. */
+@keyframes cold-start-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}

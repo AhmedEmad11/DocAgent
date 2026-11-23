@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ApiPrewarm } from "@/components/readiness/api-prewarm";
 
 /** Shared frame of the auth pages: one h1, optional description, content. */
 export function AuthCard({
@@ -12,6 +13,7 @@ export function AuthCard({
 }) {
   return (
     <div className="mx-auto w-full max-w-md space-y-6">
+      <ApiPrewarm />
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
         {description ? <p className="text-muted-foreground">{description}</p> : null}

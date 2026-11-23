@@ -21,6 +21,7 @@ const PASSWORD_CODES: Record<string, string> = {
 };
 
 function common(problem: ApiProblem): MappedError | null {
+  if (problem.code === "api_starting") return { formError: "apiStarting" };
   if (problem.status === 0 || problem.code === "network") return { formError: "network" };
   if (problem.status === 429) {
     return problem.retryAfter

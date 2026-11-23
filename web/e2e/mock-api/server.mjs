@@ -21,6 +21,14 @@ const refreshTokens = new Map(); // token -> {email, revoked}
 const mailbox = new Map(); // email -> {confirm: {userId, code}, resetCode}
 const externalCodes = new Map(); // code -> email (single use)
 const state = {
+  sleep: {
+    asleep: false,
+    wakeDelayMs: 1500,
+    wakeAt: null,
+    autoWakeAt: null,
+    wakeCalls: 0,
+    sleepingHits: 0,
+  },
   refreshCalls: 0,
   refreshByEmail: {},
   loginCalls: 0,
@@ -313,6 +321,29 @@ async function handle(req, res) {
 
   if (path === "/health") return json(res, 200, { status: "ok" });
 
+  // ---- cold start simulation (UI-GEN-7): like SnapDeploy, a sleeping host answers everything with 503 HTML until a wake POST ----
+  if (path === "/wake/mock" && req.method === "POST") {
+    state.sleep.wakeCalls++;
+    if (state.sleep.asleep && state.sleep.wakeAt === null) {
+      state.sleep.wakeAt = Date.now() + state.sleep.wakeDelayMs;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    return res.end("{}");
+  }
+  if (state.sleep.asleep && !path.startsWith("/__test/")) {
+    const due = state.sleep.wakeAt !== null && Date.now() >= state.sleep.wakeAt;
+    const autoDue = state.sleep.autoWakeAt !== null && Date.now() >= state.sleep.autoWakeAt;
+    if (due || autoDue) state.sleep.asleep = false;
+  }
+  if (state.sleep.asleep && !path.startsWith("/__test/")) {
+    state.sleep.sleepingHits++;
+    res.writeHead(503, { "content-type": "text/html; charset=utf-8" });
+    return res.end(
+      "<html><head><title>Container is Sleeping</title></head><body><h1>Container is Sleeping</h1><p>Waking up your container</p></body></html>",
+    );
+  }
+  if (path === "/health/live") return json(res, 200, { status: "Healthy" });
+
   // ---- test hooks ----
   if (path.startsWith("/__test/")) {
     if (path === "/__test/state") return json(res, 200, state);
@@ -337,6 +368,18 @@ async function handle(req, res) {
     if (path === "/__test/mailbox")
       return json(res, 200, mailbox.get(norm(url.searchParams.get("email"))) ?? {});
     const body = await readJson(req);
+    if (path === "/__test/sleep") {
+      // Sleeps until a wake POST plus `wakeDelayMs`, or wakes by itself after `autoWakeMs`; `{ asleep: false }` wakes at once.
+      Object.assign(state.sleep, {
+        asleep: body.asleep !== false,
+        wakeDelayMs: Number(body.wakeDelayMs ?? 1500),
+        wakeAt: null,
+        autoWakeAt: body.autoWakeMs ? Date.now() + Number(body.autoWakeMs) : null,
+        wakeCalls: 0,
+        sleepingHits: 0,
+      });
+      return json(res, 200, state.sleep);
+    }
     if (path === "/__test/external") {
       state.externalOutcome = String(body.outcome ?? "ok");
       return json(res, 200, state);

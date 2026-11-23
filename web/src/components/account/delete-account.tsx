@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteAccountAction } from "@/lib/auth/actions";
 import type { ActionResult } from "@/lib/auth/actions-types";
+import { actionWithColdStartRetry } from "@/lib/readiness/controller";
 
 /** True when the typed text is the account's email (case and surrounding spaces do not matter). */
 export const emailMatches = (typed: string, email: string): boolean =>
@@ -47,7 +48,7 @@ export function DeleteAccount({
     setPending(true);
     setError(null);
     try {
-      const result = await action({ locale });
+      const result = await actionWithColdStartRetry(() => action({ locale }));
       if (result.ok) return onDone(result.next ?? `/${locale}/goodbye`);
       setError({
         key: result.formError ?? "server",

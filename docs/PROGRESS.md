@@ -25,6 +25,13 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-23: UI cold-start handling (UI-GEN-7)
+- BFF: a 503 with an HTML body (SnapDeploy "Container is Sleeping"), a timeout or no connection becomes the problem `api_starting` (503, retryAfter 5) in the client, proxy, ask stream and upload ticket handlers; a bare, deduplicated (20 s) POST to the optional `DOCAGENT_API_WAKE_URL` wakes the host (no visitor data); new `GET /api/status` (calls `/health/live`, 4 s timeout, `{ ready }`, no-store).
+- Browser: `ReadinessController` (poll every 3 s, give up after 3 min with a retry button), `ApiStartingNotice` (role=status, elapsed seconds, indeterminate bar, still under reduced motion) and pre-warm on auth pages and signed-in pages; failed server actions, `bffFetch` calls and the ask stream wait for the API and retry once. Strings in en and ar.
+- Mock API: sleep hook (`/__test/sleep`, wake endpoint, `/health/live`); the Playwright project `cold-start` runs alone after `chromium` because the sleep is global to the mock.
+- Tests: Vitest 551 (was 543 + new), Playwright 177 passed (174 chromium + 3 cold-start); lint, typecheck, i18n parity, `next build` and `npm audit --omit=dev` clean.
+- Docs: SRS UI-GEN-7 as built, DEPLOYMENT S8a (UI env vars), `.env.example`.
+
 ### 2026-11-23: Phase 9.6 (i18n polish, accessibility, performance) done, with one budget NOT met
 - Design tokens: contrast of every text/background pair and of input borders, focus ring and progress fill is computed from `globals.css` in both themes by a unit test (oklch to sRGB); it found form-control borders at 1.4:1 (WCAG 1.4.11 wants 3:1), now fixed (`--input`). Focus outline kept in Windows forced-colors mode.
 - RTL: a unit test scans every source file for physical left/right utilities (none found; logical properties throughout); screenshots of the Arabic pages (landing, register with errors, documents, delete dialog, ask answer with citations, compare, settings, account, dark and 360 px) were reviewed by me, not a native reader: found and fixed reversed "0 / 2000" counters (now `dir="ltr"`); known quirk left: a mixed-script file name such as `عقد.pdf` shows its extension on the far side (standard bidi rules). Arabic plurals: test requires all six CLDR forms in every Arabic plural (one message lacked `zero`, fixed); `check:i18n` now also compares placeholders and tags between languages; Arabic texts must use Western digits. Email in the check-email sentence is a `bdi`.

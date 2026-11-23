@@ -128,3 +128,22 @@ describe("generic proxy: LLM key handling (UI-KEY-3, UI-KEY-5, UI-SEC-6)", () =>
     ).toBeUndefined();
   });
 });
+
+describe("cold start (UI-GEN-7)", () => {
+  it("answers the host's sleep page and an unreachable API with api_starting JSON", async () => {
+    const req = () => new NextRequest("https://ui.example/api/proxy/documents", { headers: same });
+    authedApiFetch.mockResolvedValueOnce({
+      kind: "response",
+      res: new Response("<html>Container is Sleeping</html>", {
+        status: 503,
+        headers: { "content-type": "text/html" },
+      }),
+    });
+    let res = await handleProxy(req(), ["documents"]);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ code: "api_starting" });
+    authedApiFetch.mockResolvedValueOnce({ kind: "network" });
+    res = await handleProxy(req(), ["documents"]);
+    expect(await res.json()).toMatchObject({ code: "api_starting" });
+  });
+});

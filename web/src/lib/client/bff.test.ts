@@ -70,3 +70,33 @@ describe("bffFetch", () => {
     expect(await bffFetch("/x", { method: "DELETE" })).toEqual({ ok: true, data: null });
   });
 });
+
+describe("bffFetch cold start retry (UI-GEN-7)", () => {
+  it("waits for /api/status, retries the same call once and returns the second answer", async () => {
+    const startingBody = JSON.stringify({ status: 503, title: "s", code: "api_starting" });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/status") return new Response(JSON.stringify({ ready: true }));
+      return fetchMock.mock.calls.filter((c) => c[0] === "/api/proxy/x").length === 1
+        ? new Response(startingBody, { status: 503 })
+        : new Response(JSON.stringify({ v: 1 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await bffFetch<{ v: number }>("/api/proxy/x");
+    expect(r).toEqual({ ok: true, data: { v: 1 } });
+    expect(fetchMock.mock.calls.filter((c) => c[0] === "/api/proxy/x")).toHaveLength(2);
+  });
+
+  it("never retries more than once: a second api_starting is the result", async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url === "/api/status"
+        ? new Response(JSON.stringify({ ready: true }))
+        : new Response(JSON.stringify({ status: 503, title: "s", code: "api_starting" }), {
+            status: 503,
+          }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await bffFetch("/api/proxy/x");
+    expect(r).toMatchObject({ ok: false, problem: { code: "api_starting" } });
+    expect(fetchMock.mock.calls.filter((c) => c[0] === "/api/proxy/x")).toHaveLength(2);
+  });
+});

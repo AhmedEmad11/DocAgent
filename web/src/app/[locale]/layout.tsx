@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { ApiStartingNotice } from "@/components/readiness/api-starting-notice";
 import { SiteFooter } from "@/components/site-footer";
 import { DemoBanner } from "@/components/demo/demo-banner";
 import { SiteHeader } from "@/components/site-header";
@@ -67,6 +68,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
             {children}
           </main>
           <SiteFooter />
+          <ApiStartingNotice />
         </NextIntlClientProvider>
       </body>
     </html>

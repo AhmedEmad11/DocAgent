@@ -119,3 +119,19 @@ describe("POST /api/ask/stream", () => {
     expect((await handleAskStream(request({ question: "q" }))).status).toBe(502);
   });
 });
+
+describe("cold start (UI-GEN-7)", () => {
+  it("answers the host's sleep page with api_starting JSON, not HTML", async () => {
+    authedApiFetch.mockResolvedValue({
+      kind: "response",
+      res: new Response("<html>Container is Sleeping</html>", {
+        status: 503,
+        headers: { "content-type": "text/html" },
+      }),
+    });
+    const res = await handleAskStream(request({ question: "q" }, { origin: "https://ui.example" }));
+    expect(res.status).toBe(503);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(await res.json()).toMatchObject({ code: "api_starting", retryAfter: 5 });
+  });
+});

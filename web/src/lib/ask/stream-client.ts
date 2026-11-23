@@ -1,6 +1,7 @@
 import { NETWORK_PROBLEM, type ApiProblem } from "@/lib/api/problem";
 import { problemFromBody } from "@/lib/client/bff";
 import { createSseParser } from "@/lib/sse/parser";
+import { getReadiness, withColdStartRetry } from "@/lib/readiness/controller";
 import { parseAskEvent, type AskEvent } from "./events";
 
 export interface AskRequestBody {
@@ -22,7 +23,20 @@ export type AskStreamEnd =
  * Ask through our BFF relay (`POST /api/ask/stream`, never the API directly). Events are handed over as they arrive;
  * aborting the signal closes the request, which the relay forwards so the API stops working (UI-QA-7).
  */
-export async function askStream(
+export function askStream(
+  body: AskRequestBody,
+  onEvent: (event: AskEvent) => void,
+  signal: AbortSignal,
+): Promise<AskStreamEnd> {
+  // Refused because the API is cold-starting (UI-GEN-7): nothing was sent on, so wait for it and ask once more.
+  return withColdStartRetry(
+    getReadiness(),
+    () => askStreamOnce(body, onEvent, signal),
+    (end) => end.kind === "refused" && end.problem.code === "api_starting",
+  ).then((end) => (signal.aborted ? { kind: "aborted" } : end));
+}
+
+async function askStreamOnce(
   body: AskRequestBody,
   onEvent: (event: AskEvent) => void,
   signal: AbortSignal,

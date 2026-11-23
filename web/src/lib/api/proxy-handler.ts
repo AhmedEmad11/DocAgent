@@ -3,7 +3,7 @@ import { getServerEnv } from "@/lib/env";
 import { isSameOrigin } from "@/lib/auth/origin";
 import { authedApiFetch } from "@/lib/session/server";
 import { matchAllowed } from "./allowlist";
-import { parseProblem, type ApiProblem } from "./problem";
+import { API_STARTING_PROBLEM, parseProblem, type ApiProblem } from "./problem";
 
 const NO_STORE = { "cache-control": "no-store" } as const;
 
@@ -52,8 +52,7 @@ export async function handleProxy(req: NextRequest, segments: string[]): Promise
   });
   if (result.kind === "anonymous")
     return problemResponse({ status: 401, title: "Unauthorized", code: "session_ended" });
-  if (result.kind === "network")
-    return problemResponse({ status: 503, title: "Cannot reach the service", code: "network" });
+  if (result.kind === "network") return problemResponse({ ...API_STARTING_PROBLEM });
 
   const { res } = result;
   if (!res.ok) return problemResponse(await parseProblem(res));

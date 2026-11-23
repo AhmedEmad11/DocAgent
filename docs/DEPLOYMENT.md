@@ -106,6 +106,16 @@ Ingestion runs inside the API process, and a container with no HTTP traffic for 
 - On a graceful stop (SIGTERM) the running job is put back in the queue immediately and the interrupted run does not count as an attempt. If the container is killed instead (no SIGTERM, out of memory), the job stays `Running`; at the next start the worker puts every `Running` job back in the queue (it fails after 3 interrupted attempts with a visible reason: `Processing was interrupted repeatedly. Please upload the file again.`). The uploaded bytes stay in Postgres until ingestion succeeds or fails, so the work restarts by itself on wake: the document shows `Pending`, then `Processing`, then `Ready`.
 - The wake-up is triggered by the next HTTP request, so a document whose user never returns resumes only when someone calls the API again.
 
+### S8a. UI (Vercel) environment variables
+
+| Name | Value | Secret |
+|---|---|---|
+| `DOCAGENT_API_URL` | the API origin, no trailing slash (for example `https://docagent-a6971.containers.snapdeploy.app`) | no |
+| `NEXT_PUBLIC_SITE_URL` | the UI origin | no |
+| `SESSION_SECRET` | 32+ random characters | yes |
+| `BFF_SHARED_SECRET` | the same value as the API's `Bff__SharedSecret` | yes |
+| `DOCAGENT_API_WAKE_URL` | optional, UI-GEN-7: `https://snapdeploy.dev/api/public/wake/<subdomain>` (for example `.../docagent-a6971`). The sleep page of SnapDeploy only wakes the container through a POST to this URL, so a server-side request never does; the UI server POSTs it (no body, no cookies, at most once per 20 s) when the API does not answer. Leave unset where the API does not sleep (local, Azure). | no |
+
 ### S9. Memory and CPU on 512 MB / 0.25 vCPU
 Measured locally with `docker run --memory 512m --cpus 0.25` (Production environment, `PORT=10000`, `Database__MigrateOnStartup=true`, throwaway pgvector Postgres in a second container), memory read from the container's cgroup (`memory.peak`; "anon" = process memory without the kernel's reclaimable file cache, which counts toward the limit but is released under pressure):
 

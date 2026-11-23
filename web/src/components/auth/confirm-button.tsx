@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { confirmEmailAction } from "@/lib/auth/actions";
+import { actionWithColdStartRetry } from "@/lib/readiness/controller";
 import { FormError } from "./form-error";
 
 /** Confirming is a POST (server action), not a GET: link scanners that open emailed links cannot use up the code (UI-SEC-3). */
@@ -18,7 +19,7 @@ export function ConfirmButton({ userId, code }: { userId: string; code: string }
     setState("pending");
     setError(null);
     try {
-      const result = await confirmEmailAction({ userId, code });
+      const result = await actionWithColdStartRetry(() => confirmEmailAction({ userId, code }));
       if (result.ok) {
         setState("done");
         return;

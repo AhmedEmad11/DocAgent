@@ -83,6 +83,7 @@ const cases: [string, ApiProblem, ProblemContext, string, string | null][] = [
   ["500", p(500), {}, "server", "retry"],
   ["502 without a code", p(502), {}, "serviceDown", "retry"],
   ["503 without a code", p(503), {}, "serviceDown", "retry"],
+  ["503 api_starting (cold start)", p(503, { code: "api_starting" }), {}, "apiStarting", "retry"],
   ["504", p(504), {}, "tookTooLong", "retry"],
   ["network (BFF cannot reach the API)", p(0, { code: "network" }), {}, "network", "retry"],
   ["session_ended from the BFF", p(401, { code: "session_ended" }), {}, "sessionEnded", "signIn"],

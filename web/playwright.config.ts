@@ -18,7 +18,16 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: { baseURL, trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", testIgnore: /cold-start\.spec/, use: { ...devices["Desktop Chrome"] } },
+    // Puts the shared mock API to sleep, which would disturb parallel tests: runs alone, after everything else (UI-GEN-7).
+    {
+      name: "cold-start",
+      testMatch: /cold-start\.spec/,
+      dependencies: ["chromium"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
   webServer: [
     {
       command: "node e2e/mock-api/server.mjs",
@@ -36,6 +45,7 @@ export default defineConfig({
       url: `${baseURL}/en`,
       env: {
         DOCAGENT_API_URL: `http://127.0.0.1:${mockApiPort}`,
+        DOCAGENT_API_WAKE_URL: `http://127.0.0.1:${mockApiPort}/wake/mock`,
         NEXT_PUBLIC_SITE_URL: baseURL,
         ...e2eEnv,
       },

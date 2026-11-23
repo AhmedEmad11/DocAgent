@@ -1,4 +1,5 @@
 import { NETWORK_PROBLEM, type ApiProblem } from "@/lib/api/problem";
+import { getReadiness, withColdStartRetry } from "@/lib/readiness/controller";
 
 /** Reads a Problem Details body (ours or the API's) without ever throwing. */
 export function problemFromBody(
@@ -30,15 +31,33 @@ export type BffResult<T> = { ok: true; data: T } | { ok: false; problem: ApiProb
  * Browser call to one of our own BFF routes (never to the API). Same origin, so the session cookie rides along and the
  * browser adds the Origin header the CSRF check wants. Returns a problem in the fixed shape (SRS 10.6) instead of throwing.
  */
-export async function bffFetch<T>(
+export function bffFetch<T>(
   path: string,
-  init: {
-    method?: "GET" | "POST" | "PUT" | "DELETE";
-    json?: unknown;
-    headers?: Record<string, string>;
-    signal?: AbortSignal;
-  } = {},
+  init: BffInit = {},
   parse: (body: unknown) => T = (b) => b as T,
+): Promise<BffResult<T>> {
+  // A cold-starting API (UI-GEN-7): wait for it, then run the same call once more. A second failure is shown as it is.
+  return withColdStartRetry(
+    getReadiness(),
+    () => bffFetchOnce(path, init, parse),
+    (r) => !r.ok && r.problem.code === "api_starting",
+  ).then((r) => {
+    if (init.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    return r;
+  });
+}
+
+interface BffInit {
+  method?: "GET" | "POST" | "PUT" | "DELETE";
+  json?: unknown;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
+async function bffFetchOnce<T>(
+  path: string,
+  init: BffInit,
+  parse: (body: unknown) => T,
 ): Promise<BffResult<T>> {
   try {
     const res = await fetch(path, {

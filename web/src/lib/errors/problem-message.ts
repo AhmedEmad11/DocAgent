@@ -65,6 +65,7 @@ export const ERROR_KEYS = [
   "maxQuestions",
   "server",
   "serviceDown",
+  "apiStarting",
   "tookTooLong",
   "network",
   "forbidden",
@@ -112,6 +113,8 @@ export function mapProblem(problem: ApiProblem, ctx: ProblemContext = {}): Mappe
       return m("sessionEnded", "signIn");
     case "network":
       return m("network", "retry");
+    case "api_starting":
+      return m("apiStarting", "retry");
   }
 
   switch (problem.status) {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getServerEnv } from "@/lib/env";
 import { isSameOrigin } from "@/lib/auth/origin";
 import { authedApiFetch } from "@/lib/session/server";
-import { parseProblem, type ApiProblem } from "./problem";
+import { API_STARTING_PROBLEM, parseProblem, type ApiProblem } from "./problem";
 
 const NO_STORE = { "cache-control": "no-store" } as const;
 /** Longer than the BYOK agent timeout (D20: 120 s) plus margin (UI-PERF-4); the route's `maxDuration` is above it. */
@@ -59,8 +59,7 @@ export async function handleAskStream(req: NextRequest): Promise<Response> {
   });
   if (result.kind === "anonymous")
     return problem({ status: 401, title: "Unauthorized", code: "session_ended" });
-  if (result.kind === "network")
-    return problem({ status: 503, title: "Cannot reach the service", code: "network" });
+  if (result.kind === "network") return problem({ ...API_STARTING_PROBLEM });
 
   const { res } = result;
   if (!res.ok) return problem(await parseProblem(res));

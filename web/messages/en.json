@@ -160,7 +160,8 @@
       "resetInvalid": "The reset code is not valid or has expired. Ask for a new one.",
       "confirmInvalid": "This confirmation link is not valid or has expired. Sign in and ask for a new one.",
       "sessionEnded": "Your session ended. Sign in again.",
-      "summaryTitle": "There is a problem with the form:"
+      "summaryTitle": "There is a problem with the form:",
+      "apiStarting": "The server is still starting up. Wait a moment and try again."
     }
   },
   "Account": {
@@ -239,7 +240,8 @@
       "signIn": "Sign in",
       "resend": "Go to the page where you can resend the email",
       "refresh": "Refresh"
-    }
+    },
+    "apiStarting": "The server is still starting up. Wait a moment and try again."
   },
   "Documents": {
     "title": "Documents",
@@ -489,5 +491,11 @@
     "privacyNotice": "Demo mode: your question and the document excerpts used to answer it are sent to a free third-party language model through OpenRouter. The model's provider may log them and use them. Do not use demo mode for confidential documents; add your own LLM API key (PUT /api/v1/me/llm-key) to choose your provider.",
     "noKey": "You have no API key saved and the demo is not available. Add an API key in Settings to ask questions.",
     "region": "Demo mode"
+  },
+  "Readiness": {
+    "title": "Starting the server…",
+    "body": "This takes about a minute ({seconds}s). You can keep this page open; we will continue automatically.",
+    "timeout": "The server is still starting. Please try again.",
+    "retry": "Try again"
   }
 }

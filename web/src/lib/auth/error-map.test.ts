@@ -142,3 +142,13 @@ describe("every message key the mappers can return exists in both catalogs", () 
     });
   }
 });
+
+describe("cold start (UI-GEN-7)", () => {
+  const starting = { status: 503, title: "x", code: "api_starting" };
+  it("every form maps api_starting to its own message, not a generic server error", () => {
+    for (const f of [mapSignInError, mapRegisterError, mapResetError, mapConfirmError]) {
+      expect(f(starting)).toEqual({ formError: "apiStarting" });
+    }
+    expect(mapQuietError(starting)).toEqual({ formError: "apiStarting" });
+  });
+});

@@ -1,6 +1,11 @@
 import { getServerEnv } from "@/lib/env";
 import { getClientIp } from "@/lib/request-ip";
-import { NETWORK_PROBLEM, parseProblem, type ApiProblem } from "./problem";
+import {
+  API_STARTING_PROBLEM,
+  isColdStartResponse,
+  parseProblem,
+  type ApiProblem,
+} from "./problem";
 
 export type ApiResult<T> =
   { ok: true; status: number; data: T } | { ok: false; problem: ApiProblem };
@@ -43,7 +48,7 @@ export async function apiFetch(path: string, init: ApiRequestInit = {}): Promise
   }
   const timeout = AbortSignal.timeout(init.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   try {
-    return await fetchImpl.current(apiUrl(path), {
+    const res = await fetchImpl.current(apiUrl(path), {
       method: init.method ?? "GET",
       headers,
       body: init.json !== undefined ? JSON.stringify(init.json) : init.body,
@@ -51,9 +56,45 @@ export async function apiFetch(path: string, init: ApiRequestInit = {}): Promise
       redirect: "manual",
       cache: "no-store",
     });
+    if (isColdStartResponse(res)) triggerWake();
+    return res;
   } catch {
+    // No answer (connection refused or timeout): treated as a cold start (UI-GEN-7).
+    triggerWake();
     return null;
   }
+}
+
+const WAKE_MIN_INTERVAL_MS = 20_000;
+const WAKE_TIMEOUT_MS = 5_000;
+let lastWakeAt = 0;
+
+/** For tests. */
+export function resetWakeThrottle(): void {
+  lastWakeAt = 0;
+}
+
+/**
+ * Wakes a sleeping API host (UI-GEN-7): the host's sleep page only wakes through a browser POST, so a server-side request never does.
+ * Fire and forget, at most once per 20 s per server instance, no body and no headers of the visitor, never throws. No URL set: no call.
+ */
+export function triggerWake(): void {
+  const url = getServerEnv().DOCAGENT_API_WAKE_URL;
+  if (!url) return;
+  const now = Date.now();
+  if (lastWakeAt !== 0 && now - lastWakeAt < WAKE_MIN_INTERVAL_MS) return;
+  lastWakeAt = now;
+  void Promise.resolve()
+    .then(() =>
+      fetchImpl.current(url, {
+        method: "POST",
+        signal: AbortSignal.timeout(WAKE_TIMEOUT_MS),
+        redirect: "manual",
+        cache: "no-store",
+      }),
+    )
+    .then((r) => r.body?.cancel())
+    .catch(() => undefined);
 }
 
 /** JSON call with ProblemDetails parsing. `parse` validates and narrows the 2xx body. */
@@ -63,7 +104,7 @@ export async function apiJson<T>(
   parse: (body: unknown) => T,
 ): Promise<ApiResult<T>> {
   const res = await apiFetch(path, init);
-  if (!res) return { ok: false, problem: NETWORK_PROBLEM };
+  if (!res) return { ok: false, problem: API_STARTING_PROBLEM };
   if (!res.ok) return { ok: false, problem: await parseProblem(res) };
   try {
     const text = await res.text();
@@ -80,7 +121,7 @@ export async function apiJson<T>(
 /** For endpoints whose success body is not needed (register, resend, forgot, reset, confirm). */
 export async function apiVoid(path: string, init: ApiRequestInit): Promise<ApiResult<null>> {
   const res = await apiFetch(path, init);
-  if (!res) return { ok: false, problem: NETWORK_PROBLEM };
+  if (!res) return { ok: false, problem: API_STARTING_PROBLEM };
   if (!res.ok) return { ok: false, problem: await parseProblem(res) };
   await res.body?.cancel();
   return { ok: true, status: res.status, data: null };

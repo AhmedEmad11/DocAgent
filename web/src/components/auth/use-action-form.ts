@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm, type FieldValues, type Path, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 import type { ActionResult } from "@/lib/auth/actions-types";
+import { actionWithColdStartRetry } from "@/lib/readiness/controller";
 import { zodResolver } from "@/lib/forms/zod-resolver";
 import { errorKeys } from "./form-field";
 
@@ -55,7 +56,7 @@ export function useActionForm<T extends FieldValues>(opts: Options<T>): ActionFo
       setRetryAfter(undefined);
       setPending(true);
       try {
-        const result = await opts.action(values);
+        const result = await actionWithColdStartRetry(() => opts.action(values));
         if (result.ok) {
           opts.onSuccess(result, values);
           return;

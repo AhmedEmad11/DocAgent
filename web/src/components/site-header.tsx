@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ApiPrewarm } from "@/components/readiness/api-prewarm";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -22,6 +23,7 @@ export async function SiteHeader() {
           <LocaleSwitcher />
           <ThemeToggle />
           {signedIn ? <SignOutButton /> : null}
+          {user.status !== "anonymous" ? <ApiPrewarm /> : null}
         </div>
         <nav aria-label={t("Nav.label")} className="w-full sm:w-auto">
           <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">

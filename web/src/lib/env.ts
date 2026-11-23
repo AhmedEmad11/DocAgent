@@ -4,6 +4,8 @@ import { z } from "zod";
 // it reads secrets. Validation is lazy so `next build` does not need them yet (they are used from 9.1).
 const serverEnvSchema = z.object({
   DOCAGENT_API_URL: z.url().refine((u) => !u.endsWith("/"), "must not end with a slash"),
+  /** Optional. POSTed (no body, no credentials) to wake a sleeping API host (SnapDeploy, UI-GEN-7). Unset: no wake call. */
+  DOCAGENT_API_WAKE_URL: z.preprocess((v) => (v === "" ? undefined : v), z.url().optional()),
   SESSION_SECRET: z.string().min(32, "must be at least 32 characters"),
   SESSION_SECRET_PREVIOUS: z.string().min(32).optional(),
   NEXT_PUBLIC_SITE_URL: z.url(),

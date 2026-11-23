@@ -203,9 +203,10 @@ export async function deleteAccountAction(input: { locale: string }): Promise<Ac
   if (isFailure(g)) return g;
   const result = await authedApiFetch("/me", { method: "DELETE" });
   if (result.kind === "anonymous") return { ok: false, formError: "sessionEnded" };
-  if (result.kind === "network") return { ok: false, formError: "network" };
+  if (result.kind === "network") return { ok: false, formError: "apiStarting" };
   const { res } = result;
   await res.body?.cancel();
+  if (res.status === 503) return { ok: false, formError: "apiStarting" };
   if (res.status === 429) return { ok: false, formError: "rateLimited" };
   if (!res.ok) return { ok: false, formError: "server" };
   await clearSession();

@@ -39,8 +39,10 @@ function parseRetryAfter(header: string | null, body: unknown): number | undefin
 /** Never throws: an unreadable body still yields a problem with the status. Tokens and request bodies are never copied. */
 export async function parseProblem(res: Response): Promise<ApiProblem> {
   let body: Record<string, unknown> = {};
+  let rawText = "";
   try {
     const text = await res.text();
+    rawText = text;
     if (text) {
       const parsed: unknown = JSON.parse(text);
       if (parsed !== null && typeof parsed === "object") body = parsed as Record<string, unknown>;
@@ -48,6 +50,7 @@ export async function parseProblem(res: Response): Promise<ApiProblem> {
   } catch {
     // not JSON (plain text or empty)
   }
+  if (isColdStart(res, rawText)) return { ...API_STARTING_PROBLEM };
   const problem: ApiProblem = {
     status: res.status,
     title: str(body.title) ?? STATUS_TITLES[res.status] ?? "Error",
@@ -76,3 +79,23 @@ export const NETWORK_PROBLEM: ApiProblem = {
   title: "Cannot reach the service",
   code: "network",
 };
+
+/** The API host is asleep or waking up (SnapDeploy "Container is Sleeping" page, a timeout or no connection): UI-GEN-7. */
+export const API_STARTING_PROBLEM: ApiProblem = {
+  status: 503,
+  title: "The service is starting",
+  code: "api_starting",
+  retryAfter: 5,
+};
+
+/** Header-only check (does not read the body): 503 with an HTML page is the host's sleep page, never the API's own answer. */
+export function isColdStartResponse(res: Response): boolean {
+  return (
+    res.status === 503 &&
+    (res.headers.get("content-type") ?? "").toLowerCase().includes("text/html")
+  );
+}
+
+function isColdStart(res: Response, text: string): boolean {
+  return res.status === 503 && (isColdStartResponse(res) || text.includes("Container is Sleeping"));
+}

@@ -418,7 +418,7 @@ Priority: **M** = must have (v1), **S** = should have, **C** = could have. "API:
 | UI-GEN-4 | A privacy page states what is sent where: demo questions and excerpts go to a free third-party model that may log them (PRIV-1); BYOK data goes to the user's chosen provider; originals are not kept (D15); cookies used (session and language only). | M |
 | UI-GEN-5 | A dark theme following the operating system setting, with a manual toggle (open issue OI-15). | S |
 | UI-GEN-6 | Custom 404 and error pages; no stack traces or API internals shown to users. | M |
-| UI-GEN-7 | A health page or footer link showing API availability is not required; the UI instead shows a friendly "service is starting, try again" message when the API is cold-starting (sleep after idle, up to about 60 s on SnapDeploy) with automatic retry. | M |
+| UI-GEN-7 | A health page or footer link showing API availability is not required; the UI instead shows a friendly "service is starting, try again" message when the API is cold-starting (sleep after idle, up to about 60 s on SnapDeploy) with automatic retry. *Built:* the BFF maps the host's 503 HTML sleep page, a timeout or no connection to `api_starting` and POSTs the optional `DOCAGENT_API_WAKE_URL` (once per 20 s); `GET /api/status` reports readiness; pages pre-warm it and show a polite status notice with elapsed seconds, and a failed action or fetch waits for the API and retries once automatically (en and ar). | M |
 
 ### 10.4 Non-functional requirements
 

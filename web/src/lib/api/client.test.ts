@@ -90,7 +90,7 @@ describe("API client (server to server)", () => {
     fake(new Error("down"));
     expect(await apiJson("/x", {}, (b) => b)).toMatchObject({
       ok: false,
-      problem: { status: 0, code: "network" },
+      problem: { status: 503, code: "api_starting" },
     });
 
     fake(new Response("not json"));
