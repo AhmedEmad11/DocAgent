@@ -34,6 +34,7 @@ const state = {
   listCalls: 0,
   ask: { started: 0, aborted: 0, abortedQuestions: [], completed: 0, bodies: [] },
   workflows: [],
+  keyCalls: [],
 };
 const tickets = new Map(); // ticket -> {email, expires}
 const UI_ORIGIN = process.env.MOCK_UI_ORIGIN ?? "http://127.0.0.1:3100";
@@ -160,7 +161,7 @@ function publicDoc(d) {
 }
 
 const PRIVACY =
-  "Demo mode: your questions and the matching document excerpts are sent to a free third-party model that may log them.";
+  "Demo mode: your question and the document excerpts used to answer it are sent to a free third-party language model through OpenRouter. The model's provider may log them and use them. Do not use demo mode for confidential documents; add your own LLM API key (PUT /api/v1/me/llm-key) to choose your provider.";
 
 /** The answer for a question, scripted by keywords (see the ask handler). */
 function makeAnswer(q, ready, documentIds) {
@@ -248,7 +249,7 @@ const demoBody = (user) =>
         used: user.demo.used,
         remaining: Math.max(0, user.demo.limit - user.demo.used),
         resetsAt: user.demo.resetsAt,
-        privacyNotice: PRIVACY,
+        privacyNotice: user.demo.privacyNotice ?? PRIVACY,
       }
     : null;
 const quotaProblem = (res, problemFn) =>
@@ -329,6 +330,7 @@ async function handle(req, res) {
         listCalls: 0,
         ask: { started: 0, aborted: 0, abortedQuestions: [], completed: 0, bodies: [] },
         workflows: [],
+        keyCalls: [],
       });
       return json(res, 200, state);
     }
@@ -346,7 +348,7 @@ async function handle(req, res) {
         id: crypto.randomUUID(),
         password: PASSWORD,
         confirmed: body.confirmed !== false,
-        externalLogins: [],
+        externalLogins: body.externalLogins ?? [],
         failures: 0,
       });
       return json(res, 200, { email });
@@ -370,6 +372,7 @@ async function handle(req, res) {
               limit: body.limit ?? 10,
               used: body.used ?? 0,
               resetsAt: body.resetsAt ?? new Date(Date.now() + 6 * 3600_000).toISOString(),
+              privacyNotice: body.privacyNotice,
             };
       if (body.hasKey !== undefined) user.hasKey = Boolean(body.hasKey);
       return json(res, 200, { demo: demoBody(user) });
@@ -915,6 +918,157 @@ async function handle(req, res) {
     return res.end();
   }
 
+  // ---- LLM key, model list and account deletion (9.5) ----
+  const PROVIDERS = ["openrouter", "anthropic", "openai", "gemini"];
+  const MODELS = {
+    openrouter: [
+      { id: "openai/gpt-4.1-mini", name: "GPT-4.1 mini" },
+      { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4" },
+      { id: "meta-llama/llama-3.3-70b", name: "Llama 3.3 70B" },
+    ],
+    anthropic: [
+      { id: "claude-sonnet-4", name: "Claude Sonnet 4" },
+      { id: "claude-haiku-4", name: "Claude Haiku 4" },
+    ],
+    openai: [
+      { id: "gpt-4.1", name: "GPT-4.1" },
+      { id: "gpt-4.1-mini", name: "GPT-4.1 mini" },
+    ],
+    gemini: [{ id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }],
+  };
+  /** The key texts that script a provider outcome (the real API validates with a live call). */
+  const keyFailure = (key, res) => {
+    const k = String(key);
+    if (k.includes("BADKEY"))
+      return problem(res, 400, "LLM key rejected", {
+        code: "llm_key_invalid",
+        detail: "The provider rejected the key.",
+      });
+    if (k.includes("NOCREDIT"))
+      return problem(res, 402, "No credit with the LLM provider", {
+        code: "llm_no_credit",
+        detail: "No credit.",
+      });
+    if (k.includes("RATELIMITED"))
+      return problem(
+        res,
+        429,
+        "Too many requests",
+        { detail: "Too many requests." },
+        { "retry-after": "12" },
+      );
+    if (k.includes("DOWN"))
+      return problem(res, 503, "LLM provider unavailable", {
+        code: "llm_unavailable",
+        detail: "Down.",
+      });
+    if (k.includes("REJECTED"))
+      return problem(res, 502, "LLM provider rejected the request", {
+        code: "llm_request_rejected",
+        detail: "Rejected.",
+      });
+    return null;
+  };
+
+  if (route === "/me/llm-key" || route.startsWith("/providers/")) {
+    if (!bearerUser) {
+      res.writeHead(401);
+      return res.end();
+    }
+    const user = users.get(bearerUser);
+    if (!user.confirmed) return problem(res, 403, "Forbidden");
+    if (route === "/me/llm-key" && req.method === "GET") {
+      if (!user.key)
+        return problem(res, 404, "Not found", { detail: "You have not saved an LLM key." });
+      return json(res, 200, user.key);
+    }
+    if (route === "/me/llm-key" && req.method === "PUT") {
+      const body = await readJson(req);
+      state.keyCalls.push({
+        op: "save",
+        provider: body.provider,
+        model: body.model,
+        keyInBody: typeof body.apiKey === "string",
+        urlHadKey: String(req.url).includes(String(body.apiKey)),
+        auth: req.headers.authorization ? "bearer" : "none",
+      });
+      if (!PROVIDERS.includes(body.provider))
+        return problem(res, 400, "Bad request", {
+          detail: "'provider' must be one of: openrouter, anthropic, openai, gemini.",
+        });
+      if (
+        !/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(String(body.model ?? "")) ||
+        String(body.model).length > 200
+      )
+        return problem(res, 400, "Bad request", { detail: "'model' is invalid." });
+      if (!/^[\x21-\x7E]{8,512}$/.test(String(body.apiKey ?? "")))
+        return problem(res, 400, "Bad request", { detail: "'apiKey' is invalid." });
+      if (String(body.apiKey).includes("SLOWKEY")) await new Promise((r) => setTimeout(r, 1200));
+      const failure = keyFailure(body.apiKey, res);
+      if (failure !== null) return failure;
+      if (body.model === "bad-model" || String(body.apiKey).includes("UNKNOWNMODEL"))
+        return problem(res, 400, "Unknown model", {
+          code: "llm_model_unknown",
+          detail: "The provider does not know this model.",
+        });
+      user.key = {
+        provider: body.provider,
+        model: body.model,
+        last4: String(body.apiKey).slice(-4),
+        updatedAt: new Date().toISOString(),
+      };
+      user.hasKey = true;
+      return json(res, 200, user.key);
+    }
+    if (route === "/me/llm-key" && req.method === "DELETE") {
+      state.keyCalls.push({ op: "delete" });
+      user.key = null;
+      user.hasKey = false;
+      res.writeHead(204);
+      return res.end();
+    }
+    const models = route.match(/^\/providers\/([a-z0-9-]+)\/models$/);
+    if (models && req.method === "GET") {
+      const provider = models[1];
+      if (!PROVIDERS.includes(provider))
+        return problem(res, 404, "Not found", { detail: "Unknown provider." });
+      const header = req.headers["x-llm-api-key"];
+      state.keyCalls.push({
+        op: "models",
+        provider,
+        keyInHeader: typeof header === "string",
+        urlHadKey: typeof header === "string" && String(req.url).includes(header),
+        auth: req.headers.authorization ? "bearer" : "none",
+      });
+      if (typeof header !== "string" || !header)
+        return problem(res, 400, "LLM key required", {
+          code: "llm_key_required",
+          detail: "Send the provider key in the X-Llm-Api-Key header.",
+        });
+      const failure = keyFailure(header, res);
+      if (failure !== null) return failure;
+      if (header.includes("LISTERR"))
+        return problem(res, 502, "LLM provider rejected the request", {
+          code: "llm_request_rejected",
+          detail: "Rejected.",
+        });
+      return json(res, 200, { provider, models: MODELS[provider] });
+    }
+  }
+
+  if (route === "/me" && req.method === "DELETE") {
+    if (!bearerUser) {
+      res.writeHead(401);
+      return res.end();
+    }
+    state.keyCalls.push({ op: "delete-account", email: bearerUser });
+    users.delete(bearerUser);
+    for (const [t, rec] of accessTokens) if (rec.email === bearerUser) accessTokens.delete(t);
+    for (const [t, rec] of refreshTokens) if (rec.email === bearerUser) refreshTokens.delete(t);
+    res.writeHead(204);
+    return res.end();
+  }
+
   if (route === "/me" && req.method === "GET") {
     const token = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
     const rec = token && accessTokens.get(token);
@@ -923,6 +1077,10 @@ async function handle(req, res) {
       return res.end();
     }
     const user = users.get(rec.email);
+    if (!user) {
+      res.writeHead(401);
+      return res.end();
+    }
     return json(res, 200, {
       id: user.id,
       email: rec.email,

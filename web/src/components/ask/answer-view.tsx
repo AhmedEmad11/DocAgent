@@ -4,7 +4,9 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Copy } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { PrivacyText } from "@/components/demo/demo-banner-view";
 import { Button } from "@/components/ui/button";
+import { isKnownPrivacyNotice } from "@/lib/demo/privacy";
 import type { Answer } from "@/lib/ask/events";
 
 // The Markdown renderer is the heaviest part of the page: loaded when the first answer arrives (UI-PERF-2).
@@ -48,13 +50,14 @@ export function AnswerView({ answer, idPrefix }: { answer: Answer; idPrefix: str
       {answer.notices.length > 0 ? (
         <ul className="space-y-2" aria-label={t("notices")} data-testid="answer-notices">
           {answer.notices.map((notice, i) => (
-            // API text is English only and shown as given (UI-I18N-7).
+            // The demo privacy notice is translated (OI-13); other API text is English only and shown as given (UI-I18N-7).
             <li
               key={i}
-              dir="ltr"
+              {...(isKnownPrivacyNotice(notice) ? {} : { dir: "ltr" as const })}
               className="rounded-md border border-border bg-muted p-3 text-start text-sm"
+              data-testid={isKnownPrivacyNotice(notice) ? "privacy-notice" : "notice"}
             >
-              {notice}
+              <PrivacyText text={notice} />
             </li>
           ))}
         </ul>

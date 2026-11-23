@@ -48,7 +48,7 @@
     "byok": "If you add your own provider key, your questions and excerpts go to the provider you choose.",
     "originals": "Original files are not kept after they are processed.",
     "cookiesTitle": "Cookies and browser storage",
-    "cookies": "The site uses a session cookie once you sign in, short-lived cookies while you register or sign in with Google or GitHub, and a language cookie. Your theme choice is kept in your browser's local storage. There is no analytics and no tracking."
+    "cookies": "The site uses a session cookie once you sign in, short-lived cookies while you register or sign in with Google or GitHub, and a language cookie. Your theme choice is kept in your browser's local storage, and the fact that you have seen the demo privacy notice in its session storage. Neither holds personal data. There is no analytics and no tracking."
   },
   "NotFound": {
     "title": "Page not found",
@@ -158,13 +158,46 @@
       "lockedOut": "Too many failed sign-in attempts. Wait a few minutes and try again.",
       "lockedOutReset": "Or reset your password.",
       "resetInvalid": "The reset code is not valid or has expired. Ask for a new one.",
-      "confirmInvalid": "This confirmation link is not valid or has expired. Sign in and ask for a new one."
+      "confirmInvalid": "This confirmation link is not valid or has expired. Sign in and ask for a new one.",
+      "sessionEnded": "Your session ended. Sign in again."
     }
   },
   "Account": {
     "email": "Signed in as",
     "methods": "Linked sign-in providers",
-    "methodsNone": "None (email and password)"
+    "methodsNone": "None (email and password)",
+    "heading": "Account",
+    "confirmation": "Email address",
+    "confirmed": "Confirmed",
+    "notConfirmed": "Not confirmed yet",
+    "mode": "Mode",
+    "modeKey": "Your own API key",
+    "modeDemo": "Demo mode (free demo model, daily limits)",
+    "modeNone": "No key saved and the demo is not available",
+    "manageKey": "Manage key",
+    "unconfirmedHint": "Confirm your email address to use documents and questions. We can send the link again.",
+    "storage": {
+      "title": "Storage",
+      "chunks": "Storage: {used, number, integer} of {limit, number, integer} text chunks",
+      "high": "You have used more than 80% of your storage. Delete documents you no longer need to free space.",
+      "help": "Storage is filled by the text chunks of your documents. Deleting a document frees its chunks."
+    },
+    "delete": {
+      "title": "Delete account",
+      "summary": "Permanently delete your account and everything stored with it.",
+      "action": "Delete my account",
+      "dialogTitle": "Delete your account?",
+      "lists": "This removes, permanently:",
+      "listDocuments": "all your documents",
+      "listChunks": "their text chunks and embeddings",
+      "listKey": "your saved API key",
+      "listDemo": "your demo usage",
+      "permanent": "This cannot be undone.",
+      "typeEmail": "Type your email address <email></email> to confirm",
+      "confirm": "Delete my account",
+      "cancel": "Cancel",
+      "deleting": "Deleting"
+    }
   },
   "Errors": {
     "demoQuota": "You have used today's demo questions. They reset at {time}. Add your own API key to keep going now.",
@@ -373,5 +406,86 @@
       "sameDocument": "Choose two different documents to compare.",
       "focusTooLong": "The focus is too long."
     }
+  },
+  "Settings": {
+    "title": "Settings",
+    "intro": "Use your own model provider key for higher limits and your choice of model.",
+    "providers": {
+      "openrouter": "OpenRouter",
+      "anthropic": "Anthropic",
+      "openai": "OpenAI",
+      "gemini": "Google Gemini"
+    },
+    "saved": {
+      "title": "Your API key",
+      "provider": "Provider",
+      "model": "Model",
+      "key": "Key",
+      "limits": "With your own key, questions use your provider and the higher document limits apply (100 documents of up to 25 MB)."
+    },
+    "none": {
+      "demo": "You have no key saved, so DocAgent uses a free demo model with daily limits (3 documents of up to 5 MB).",
+      "noDemo": "You have no key saved and the demo is not available. Add a key to ask questions.",
+      "benefits": "With your own key there is no daily question limit, you choose the model, and you can keep up to 100 documents of up to 25 MB."
+    },
+    "form": {
+      "saveTitle": "Add your API key",
+      "replaceTitle": "Replace your API key",
+      "provider": "Provider",
+      "key": "API key",
+      "keyHint": "Paste the key from your provider. It is not shown again after you save.",
+      "show": "Show",
+      "hide": "Hide",
+      "model": "Model",
+      "modelHint": "Type the model name, or load the list with your key.",
+      "modelHintList": "Choose from {count, plural, one {# model} other {# models}} that can use tools, or type a model name.",
+      "loadModels": "Load models",
+      "loadingModels": "Loading models",
+      "loadModelsNeedsKey": "Enter your key first.",
+      "typeInstead": "You can still type the model name yourself.",
+      "storage": "Your key is sent to the DocAgent API over HTTPS, stored encrypted there and used only for your requests. Only its last 4 characters are ever shown.",
+      "privacyLink": "Privacy notice",
+      "save": "Check and save key",
+      "replace": "Check and replace key",
+      "checking": "Checking your key with the provider. This can take a few seconds."
+    },
+    "errors": {
+      "keyRequired": "Enter your API key.",
+      "keyShort": "The key is too short.",
+      "keyLong": "The key is too long.",
+      "keyFormat": "The key must not contain spaces or special characters.",
+      "modelRequired": "Enter a model name.",
+      "modelFormat": "The model name may only contain letters, digits and . _ - : /"
+    },
+    "notice": {
+      "saved": "Your key was checked and saved. Questions now use your provider.",
+      "deleted": "Your key was deleted. DocAgent uses the demo model again."
+    },
+    "delete": {
+      "action": "Delete my key",
+      "title": "Delete your API key?",
+      "body": "Your key is removed. Questions use the demo model and its daily limits again.",
+      "documents": "Documents above the demo limits stay, but you cannot upload new ones until you are under the limit.",
+      "confirm": "Delete key",
+      "cancel": "Cancel",
+      "deleting": "Deleting"
+    }
+  },
+  "Goodbye": {
+    "title": "Your account was deleted",
+    "body": "Your documents, text chunks, key and demo usage were removed, and you were signed out.",
+    "again": "You are welcome to create a new account at any time. It starts empty.",
+    "home": "Back to the start page",
+    "register": "Create a new account"
+  },
+  "Demo": {
+    "banner": "Demo mode: {remaining} of {limit} questions left today. Resets at {time}.",
+    "bannerZero": "Demo mode: you have used all {limit} questions for today. They reset at {time}, in {countdown}.",
+    "countdown": "{hours}h {minutes}m",
+    "addKey": "Add your own API key",
+    "privacy": "Privacy notice",
+    "privacyNotice": "Demo mode: your question and the document excerpts used to answer it are sent to a free third-party language model through OpenRouter. The model's provider may log them and use them. Do not use demo mode for confidential documents; add your own LLM API key (PUT /api/v1/me/llm-key) to choose your provider.",
+    "noKey": "You have no API key saved and the demo is not available. Add an API key in Settings to ask questions.",
+    "region": "Demo mode"
   }
 }

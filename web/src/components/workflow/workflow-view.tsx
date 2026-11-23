@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { AnswerView } from "@/components/ask/answer-view";
+import { QuotaBlocked, isBlocked, type Quota } from "@/components/demo/quota-blocked";
 import { Button } from "@/components/ui/button";
 import { ProblemAlert } from "@/components/ui/problem-alert";
 import { Link } from "@/i18n/navigation";
@@ -83,7 +85,7 @@ export function WorkflowView({
   documents,
   initialA,
   demo,
-  resetsAt,
+  quota = null,
   run = runWorkflow,
 }: {
   kind: "summary" | "compare";
@@ -91,10 +93,12 @@ export function WorkflowView({
   documents: WorkflowDocument[];
   initialA?: string | undefined;
   demo: boolean;
-  resetsAt?: string | undefined;
+  /** The demo allowance (null for accounts with their own key). At zero the controls are off (UI-DEMO-2). */
+  quota?: Quota | null;
   /** Test seam. */
   run?: Run;
 }) {
+  const router = useRouter();
   const t = useTranslations("Workflow");
   const [a, setA] = useState(documents.some((d) => d.id === initialA) ? (initialA ?? "") : "");
   const [b, setB] = useState("");
@@ -104,6 +108,8 @@ export function WorkflowView({
   const [announcement, setAnnouncement] = useState("");
   const aborter = useRef<AbortController | null>(null);
   const running = state.phase === "running";
+  const blocked = isBlocked(quota);
+  const resetsAt = quota?.resetsAt;
 
   useEffect(() => () => aborter.current?.abort(), []);
 
@@ -131,6 +137,7 @@ export function WorkflowView({
           names: kind === "summary" ? [nameOf(a)] : [nameOf(a), nameOf(b)],
         });
         setAnnouncement(t(`${kind}.ready`));
+        if (demo) router.refresh(); // the allowance in the banner follows (UI-DEMO-2)
       } else {
         setState({ phase: "failed", problem: result.problem });
       }
@@ -166,13 +173,14 @@ export function WorkflowView({
 
   return (
     <div className="space-y-8">
+      {blocked && resetsAt ? <QuotaBlocked resetsAt={resetsAt} /> : null}
       <form
         noValidate
         className="space-y-5"
         data-testid="workflow-form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!running) void start();
+          if (!running && !blocked) void start();
         }}
       >
         {demo ? (
@@ -237,7 +245,7 @@ export function WorkflowView({
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={running} aria-busy={running}>
+          <Button type="submit" disabled={running || blocked} aria-busy={running}>
             {t(`${kind}.submit`)}
           </Button>
           {running ? (

@@ -109,7 +109,7 @@ test.describe("ask with streaming (UI-QA-1 to 12)", () => {
     );
     await expect(
       page.getByTestId("answer-notices").first().getByRole("listitem").first(),
-    ).toContainText("Demo mode: your questions");
+    ).toContainText("Demo mode: your question and the document excerpts");
     // Newest first, all four kept in this tab (OI-12).
     await expect(page.getByTestId("qa-item")).toHaveCount(4);
     await expect(page.getByTestId("qa-question").first()).toHaveText("demomode please");
@@ -299,7 +299,7 @@ test.describe("ask page in Arabic and accessibility", () => {
       test(`axe: ask page (${locale}, ${scheme}) while working and with an answer`, async ({
         page,
       }) => {
-        await page.emulateMedia({ colorScheme: scheme });
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         await openAsk(page, await readyUser(`axe${locale}${scheme}`), locale);
         const serious = async () =>
           (await new AxeBuilder({ page }).analyze()).violations.filter(

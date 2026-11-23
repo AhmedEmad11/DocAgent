@@ -62,21 +62,39 @@ test.describe("summary (UI-SUM-1, 3, 4)", () => {
     expect(call).toMatchObject({ kind: "summary", auth: "bearer" });
   });
 
-  test("the demo cost note shows before submitting and the quota is explained when it is used up", async ({
+  test("the demo cost note shows before submitting; at zero the button is off and the reset time and the way to add a key are shown", async ({
     page,
   }) => {
     const email = await readyUser("sumdemo");
-    await setDemo(email, { used: 10, limit: 10 });
+    await setDemo(email, { used: 9, limit: 10 });
     await open(page, email, "/en/summary");
     await expect(page.getByTestId("demo-cost")).toContainText(
       "counts as one of your daily questions",
     );
     await page.getByLabel("Document").selectOption({ label: "lease.pdf" });
     await page.getByRole("button", { name: "Summarize" }).click();
+    await expect(page.getByTestId("result")).toBeVisible(); // the last question
+
+    await page.goto("/en/summary");
     await expect(page.getByTestId("problem-alert")).toContainText(
       "You have used today's demo questions. They reset at",
     );
-    await expect(page.getByRole("link", { name: "Add an API key" })).toBeVisible();
+    await expect(
+      page.getByTestId("problem-alert").getByRole("link", { name: "Add an API key" }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Summarize" })).toBeDisabled();
+  });
+
+  test("a stale page still gets the API's quota message with the reset time", async ({ page }) => {
+    const email = await readyUser("sumstale");
+    await setDemo(email, { used: 2, limit: 10 });
+    await open(page, email, "/en/summary");
+    await setDemo(email, { used: 10, limit: 10 }); // used up in another tab
+    await page.getByLabel("Document").selectOption({ label: "lease.pdf" });
+    await page.getByRole("button", { name: "Summarize" }).click();
+    await expect(page.getByTestId("problem-alert")).toContainText(
+      "You have used today's demo questions. They reset at",
+    );
   });
 
   test("no demo note for an account with its own key", async ({ page }) => {
@@ -258,7 +276,7 @@ test.describe("summary and compare: accessibility", () => {
       test(`axe: summary and compare (${locale}, ${scheme}) idle, working and with a result`, async ({
         page,
       }) => {
-        await page.emulateMedia({ colorScheme: scheme });
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         const email = await readyUser(`axe${locale}${scheme}`);
         await setDemo(email, { used: 1, limit: 10 });
         await signInAndLand(page, email);

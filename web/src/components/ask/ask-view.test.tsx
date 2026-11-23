@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { Answer, AskEvent } from "@/lib/ask/events";
 import type { AskStreamEnd } from "@/lib/ask/stream-client";
 import { renderWithIntl } from "@/test-utils";
+import { routerMock } from "@/test/router-mock";
 
 vi.mock("@/i18n/navigation", () => ({
   Link: ({
@@ -272,5 +273,69 @@ describe("AskView", () => {
     await userEvent.click(screen.getByRole("button", { name: "اسأل" }));
     expect(await screen.findByTestId("qa-question")).toHaveAttribute("dir", "auto");
     expect(screen.getByTestId("answer-meta")).toHaveTextContent("تمت الإجابة بمفتاحك الخاص");
+  });
+
+  it("at zero demo questions left the controls are off with the reset time and a link to add a key (UI-DEMO-2)", () => {
+    renderWithIntl(
+      <AskView
+        documents={docs}
+        quota={{ remaining: 0, resetsAt: "2026-11-24T00:00:00Z" }}
+        stream={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("They reset at");
+    expect(screen.getByRole("link", { name: "Add an API key" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+  });
+
+  it("re-reads the allowance after an answer, only for demo accounts", async () => {
+    const stream = vi.fn<Stream>(instant([{ type: "answer", answer }]));
+    const { unmount } = renderWithIntl(
+      <AskView
+        documents={docs}
+        quota={{ remaining: 5, resetsAt: "2026-11-24T00:00:00Z" }}
+        stream={stream}
+      />,
+    );
+    await type("q");
+    await ask();
+    await screen.findByTestId("answer");
+    expect(routerMock.refresh).toHaveBeenCalledTimes(1);
+    unmount();
+    routerMock.refresh.mockClear();
+    renderWithIntl(<AskView documents={docs} stream={stream} />);
+    await type("q");
+    await ask();
+    await screen.findByTestId("answer");
+    expect(routerMock.refresh).not.toHaveBeenCalled();
+  });
+
+  it("shows the demo privacy notice in the active language when it is the one the UI knows", async () => {
+    const { KNOWN_PRIVACY_NOTICE_EN } = await import("@/lib/demo/privacy");
+    renderWithIntl(
+      <AskView
+        documents={docs}
+        stream={instant([
+          {
+            type: "answer",
+            answer: {
+              ...answer,
+              mode: "demo",
+              notices: [KNOWN_PRIVACY_NOTICE_EN, "Other API text."],
+            },
+          },
+        ])}
+      />,
+      "ar",
+    );
+    await userEvent.type(screen.getByLabelText("سؤالك"), "س");
+    await userEvent.click(screen.getByRole("button", { name: "اسأل" }));
+    const privacy = await screen.findByTestId("privacy-notice");
+    expect(privacy).toHaveTextContent("وضع التجربة");
+    expect(privacy.getAttribute("dir")).toBeNull();
+    expect(screen.getByTestId("notice")).toHaveAttribute("dir", "ltr");
   });
 });

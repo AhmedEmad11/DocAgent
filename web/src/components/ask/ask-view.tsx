@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { QuotaBlocked, isBlocked, type Quota } from "@/components/demo/quota-blocked";
 import { ProblemAlert } from "@/components/ui/problem-alert";
 import { dynamicT } from "@/i18n/dynamic";
 import { Link } from "@/i18n/navigation";
@@ -63,13 +65,17 @@ function Progress({ stage }: { stage: string }) {
 export function AskView({
   documents,
   initialSelected,
+  quota = null,
   stream = askStream,
 }: {
   documents: ScopeDocument[];
   initialSelected?: string[];
+  /** The demo allowance (null for accounts with their own key). At zero the controls are off (UI-DEMO-2). */
+  quota?: Quota | null;
   /** Test seam. */
   stream?: Stream;
 }) {
+  const router = useRouter();
   const t = useTranslations("Ask");
   const tk = dynamicT(t);
   const ready = documents.filter((d) => d.status === "Ready");
@@ -84,6 +90,8 @@ export function AskView({
   const nextId = useRef(1);
   const aborter = useRef<AbortController | null>(null);
   const running = items.some((i) => i.state.phase === "running");
+  const blocked = isBlocked(quota);
+  const demo = quota !== null;
 
   useEffect(() => () => aborter.current?.abort(), []);
 
@@ -108,6 +116,7 @@ export function AskView({
           else if (event.type === "verifying") setAnnouncement(t("stages.verifying"));
           else if (event.type === "answer") {
             setAnnouncement(t("answerReady"));
+            if (demo) router.refresh(); // the allowance in the banner follows (UI-DEMO-2)
             setQuestion((current) => (current.trim() === body.question ? "" : current));
           }
         },
@@ -117,7 +126,7 @@ export function AskView({
       else if (end.kind === "dropped") dispatch(id, { type: "dropped" });
       if (aborter.current === controller) aborter.current = null;
     },
-    [dispatch, stream, t],
+    [dispatch, stream, t, demo, router],
   );
 
   const ask = (text: string, documentIds: string[] | undefined) => {
@@ -128,7 +137,7 @@ export function AskView({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (running) return;
+    if (running || blocked) return;
     const text = question.trim();
     if (!text) {
       setEmptyError(true);
@@ -149,7 +158,7 @@ export function AskView({
   };
 
   const retry = (item: Item) => {
-    if (running) return;
+    if (running || blocked) return;
     void run(item.id, {
       question: item.question,
       ...(item.documentIds ? { documentIds: item.documentIds } : {}),
@@ -184,6 +193,7 @@ export function AskView({
 
   return (
     <div className="space-y-8">
+      {blocked && quota ? <QuotaBlocked resetsAt={quota.resetsAt} /> : null}
       <form onSubmit={submit} noValidate className="space-y-5" data-testid="ask-form">
         <div className="space-y-1.5">
           <label htmlFor="question" className="text-sm font-medium">
@@ -276,7 +286,7 @@ export function AskView({
         </fieldset>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={running} aria-busy={running}>
+          <Button type="submit" disabled={running || blocked} aria-busy={running}>
             {t("submit")}
           </Button>
           {running ? (
@@ -313,6 +323,7 @@ export function AskView({
               <ProblemAlert
                 problem={item.state.problem}
                 ctx={{ area: "ask" }}
+                resetsAt={quota?.resetsAt}
                 onRetry={running ? undefined : () => retry(item)}
               />
             ) : null}

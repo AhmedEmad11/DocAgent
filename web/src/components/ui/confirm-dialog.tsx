@@ -10,6 +10,8 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel: string;
   pending?: boolean;
+  /** Keeps the confirm button off until the user has done what the dialog asks (for example typing their email). */
+  confirmDisabled?: boolean;
   /** Shown inside the dialog (an alert) when the action failed. */
   error?: ReactNode;
   destructive?: boolean;
@@ -29,6 +31,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   pending = false,
+  confirmDisabled = false,
   error,
   destructive = true,
   onConfirm,
@@ -66,7 +69,7 @@ export function ConfirmDialog({
           <Button
             type="button"
             onClick={onConfirm}
-            disabled={pending}
+            disabled={pending || confirmDisabled}
             aria-busy={pending}
             className={
               destructive

@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
+import { navigationMock, routerMock } from "@/test/router-mock";
+
+vi.mock("next/navigation", () => navigationMock);
 
 afterEach(() => {
   cleanup();
+  routerMock.refresh.mockClear();
+  routerMock.push.mockClear();
   localStorage.clear();
   document.documentElement.className = "";
 });

@@ -248,7 +248,9 @@ test.describe("documents list and upload (UI-DOC-1 to 10)", () => {
     await expect(page.getByTestId("at-limit")).toContainText(
       "You have reached the limit of 3 documents",
     );
-    await expect(page.getByRole("link", { name: /Add your own API key/ })).toBeVisible();
+    await expect(
+      page.getByTestId("at-limit").getByRole("link", { name: /Add your own API key/ }),
+    ).toBeVisible();
     await expect(page.getByTestId("file-input")).toBeDisabled();
 
     await seedDocuments(
@@ -345,7 +347,7 @@ test.describe("documents page in Arabic and accessibility", () => {
       test(`axe: documents page (${locale}, ${scheme}) with documents and a dialog open`, async ({
         page,
       }) => {
-        await page.emulateMedia({ colorScheme: scheme });
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         const email = await newUser(`axe${locale}${scheme}`);
         await seedDocuments(email, [
           { fileName: "ready.pdf", status: "Ready", extractionNotice: "A note." },

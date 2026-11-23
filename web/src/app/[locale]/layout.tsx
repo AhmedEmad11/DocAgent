@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { SiteFooter } from "@/components/site-footer";
+import { DemoBanner } from "@/components/demo/demo-banner";
 import { SiteHeader } from "@/components/site-header";
 import { getDirection, routing } from "@/i18n/routing";
 import { themeInitScript } from "@/lib/theme";
@@ -57,6 +58,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
         </a>
         <NextIntlClientProvider>
           <SiteHeader />
+          <DemoBanner />
           <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
             {children}
           </main>

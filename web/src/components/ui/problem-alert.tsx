@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { useResetTime } from "@/components/demo/use-reset-time";
 import { dynamicT } from "@/i18n/dynamic";
 import { Link } from "@/i18n/navigation";
 import type { ApiProblem } from "@/lib/api/problem";
@@ -22,22 +23,21 @@ export function useCountdown(seconds: number | undefined): number {
   return Math.max(0, (seconds ?? 0) - tick.elapsed);
 }
 
-/** Text for a problem in the active language (SRS 10.6). Returns the message and the follow-up the table asks for. */
-export function useProblemText() {
+/**
+ * Text for a problem in the active language (SRS 10.6). Returns the message and the follow-up the table asks for.
+ * `resetsAt` (the demo allowance reset, UTC) is shown as the visitor's local clock time.
+ */
+export function useProblemText(resetsAt?: string) {
   const t = dynamicT(useTranslations("Errors"));
-  const format = useFormatter();
   const locale = useLocale();
-  return (problem: ApiProblem, ctx: ProblemContext = {}, resetsAt?: string) => {
+  const resetTime = useResetTime(resetsAt);
+  return (problem: ApiProblem, ctx: ProblemContext = {}) => {
     const mapped = mapProblem(problem, ctx);
     const values: Record<string, string | number> = { ...mapped.values };
     if (typeof values.size === "number") values.size = formatBytes(values.size, locale);
     let key = mapped.key;
     if (mapped.needsTime) {
-      if (resetsAt)
-        values.time = format.dateTime(new Date(resetsAt), {
-          timeStyle: "short",
-          numberingSystem: "latn",
-        });
+      if (resetTime) values.time = resetTime;
       else key = "demoQuotaNoTime";
     }
     return { text: t(key, values), action: mapped.action, retryAfter: problem.retryAfter };
@@ -63,9 +63,9 @@ export function ProblemAlert({
   onRefresh,
   className = "",
 }: Props) {
-  const describe = useProblemText();
+  const describe = useProblemText(resetsAt);
   const t = useTranslations("Errors.actions");
-  const { text, action, retryAfter } = describe(problem, ctx, resetsAt);
+  const { text, action, retryAfter } = describe(problem, ctx);
   const wait = useCountdown(action === "retry" ? retryAfter : undefined);
   return (
     <div

@@ -27,6 +27,7 @@ export interface MockState {
   ticketsIssued: number;
   uploads: { name: string; size: number; auth: "ticket" | "bearer" }[];
   listCalls: number;
+  keyCalls: Record<string, unknown>[];
   workflows: { kind: string; ids: string[]; focus: string; auth: string }[];
   ask: {
     started: number;
@@ -92,5 +93,10 @@ export const setDemo = (
     limit?: number;
     hasKey?: boolean;
     resetsAt?: string;
+    privacyNotice?: string;
   } = {},
 ) => mock("/__test/demo", { email, ...extra });
+
+/** Closes nothing: the demo privacy notice is an open <details> the first time in a session; this just reports it. */
+export const KNOWN_PRIVACY =
+  "Demo mode: your question and the document excerpts used to answer it are sent to a free third-party language model through OpenRouter. The model's provider may log them and use them. Do not use demo mode for confidential documents; add your own LLM API key (PUT /api/v1/me/llm-key) to choose your provider.";

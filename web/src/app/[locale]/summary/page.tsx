@@ -36,7 +36,7 @@ export default async function SummaryPage({
         .map((d) => ({ id: d.id, fileName: d.fileName }))}
       initialA={doc}
       demo={Boolean(me.demo)}
-      resetsAt={me.demo?.resetsAt}
+      quota={me.demo ? { remaining: me.demo.remaining, resetsAt: me.demo.resetsAt } : null}
     />
   ) : (
     <UnconfirmedNotice />

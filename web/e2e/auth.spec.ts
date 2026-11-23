@@ -326,7 +326,7 @@ test.describe("accessibility of the auth pages", () => {
   for (const locale of ["en", "ar"]) {
     test(`no serious or critical axe violations (${locale}, light and dark)`, async ({ page }) => {
       for (const scheme of ["light", "dark"] as const) {
-        await page.emulateMedia({ colorScheme: scheme });
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         for (const p of pages) {
           await page.goto(`/${locale}/${p}`);
           const results = await new AxeBuilder({ page })

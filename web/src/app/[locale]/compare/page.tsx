@@ -36,7 +36,7 @@ export default async function ComparePage({
         .map((d) => ({ id: d.id, fileName: d.fileName }))}
       initialA={first}
       demo={Boolean(me.demo)}
-      resetsAt={me.demo?.resetsAt}
+      quota={me.demo ? { remaining: me.demo.remaining, resetsAt: me.demo.resetsAt } : null}
     />
   ) : (
     <UnconfirmedNotice />

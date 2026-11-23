@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Answer } from "@/lib/ask/events";
 import { renderWithIntl } from "@/test-utils";
+import { routerMock } from "@/test/router-mock";
 
 vi.mock("@/i18n/navigation", () => ({
   Link: ({ href, children, ...p }: { href: string; children: React.ReactNode }) => (
@@ -149,7 +150,7 @@ describe("WorkflowView: summary", () => {
         documents={docs}
         initialA="a"
         demo
-        resetsAt="2026-11-24T00:00:00Z"
+        quota={{ remaining: 1, resetsAt: "2026-11-24T00:00:00Z" }}
         run={run}
       />,
     );
@@ -157,6 +158,41 @@ describe("WorkflowView: summary", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /They reset at .*Add your own API key/,
     );
+  });
+
+  it("turns the controls off at zero questions left, with the reset time and the way to add a key, and re-reads the allowance after an answer", async () => {
+    const { unmount } = renderWithIntl(
+      <WorkflowView
+        kind="summary"
+        documents={docs}
+        initialA="a"
+        demo
+        quota={{ remaining: 0, resetsAt: "2026-11-24T00:00:00Z" }}
+        run={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("They reset at");
+    expect(screen.getByRole("link", { name: "Add an API key" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    expect(screen.getByRole("button", { name: "Summarize" })).toBeDisabled();
+    unmount();
+
+    const run = vi.fn<Run>(async () => ({ ok: true, data: answer }));
+    renderWithIntl(
+      <WorkflowView
+        kind="summary"
+        documents={docs}
+        initialA="a"
+        demo
+        quota={{ remaining: 4, resetsAt: "2026-11-24T00:00:00Z" }}
+        run={run}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Summarize" }));
+    await screen.findByTestId("result");
+    expect(routerMock.refresh).toHaveBeenCalled();
   });
 
   it("shows an empty state when there is no ready document", () => {

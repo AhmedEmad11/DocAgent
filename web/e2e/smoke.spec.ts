@@ -25,7 +25,7 @@ for (const { locale, dir, h1 } of locales) {
 
     test("has no serious or critical axe violations in light and dark", async ({ page }) => {
       for (const scheme of ["light", "dark"] as const) {
-        await page.emulateMedia({ colorScheme: scheme });
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         for (const path of [`/${locale}`, `/${locale}/privacy`]) {
           await page.goto(path);
           await expect(page.locator("html")).toHaveClass(

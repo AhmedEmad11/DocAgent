@@ -193,3 +193,21 @@ export async function signOutAction(formData: FormData): Promise<void> {
   if (!isFailure(g)) await clearSession();
   redirect(`/${locale}`);
 }
+
+/**
+ * Deletes the account (UI-ACC-3, AUTH-8): the API removes the user with all documents, chunks, the stored key and demo usage, then the
+ * session cookie is cleared. The typed-email confirmation is checked in the dialog; the API call itself only needs the session.
+ */
+export async function deleteAccountAction(input: { locale: string }): Promise<ActionResult> {
+  const g = await guard();
+  if (isFailure(g)) return g;
+  const result = await authedApiFetch("/me", { method: "DELETE" });
+  if (result.kind === "anonymous") return { ok: false, formError: "sessionEnded" };
+  if (result.kind === "network") return { ok: false, formError: "network" };
+  const { res } = result;
+  await res.body?.cancel();
+  if (res.status === 429) return { ok: false, formError: "rateLimited" };
+  if (!res.ok) return { ok: false, formError: "server" };
+  await clearSession();
+  return { ok: true, next: `/${asLocale(input.locale)}/goodbye` };
+}

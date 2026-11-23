@@ -32,6 +32,7 @@ export default async function AskPage({ params, searchParams }: PageProps<"/[loc
         status: d.status,
       }))}
       initialSelected={wanted}
+      quota={me.demo ? { remaining: me.demo.remaining, resetsAt: me.demo.resetsAt } : null}
     />
   ) : (
     <UnconfirmedNotice />
