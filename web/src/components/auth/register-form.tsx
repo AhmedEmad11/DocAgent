@@ -12,7 +12,7 @@ import { useActionForm } from "./use-action-form";
 export function RegisterForm() {
   const t = useTranslations("Auth");
   const locale = useLocale();
-  const { form, formError, retryAfter, pending, onSubmit } = useActionForm<RegisterInput>({
+  const { form, summary, pending, onSubmit } = useActionForm<RegisterInput>({
     schema: registerSchema,
     defaultValues: { email: "", password: "" },
     action: (values) => registerAction({ ...values, locale }),
@@ -22,7 +22,10 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormError messageKey={formError} retryAfter={retryAfter} />
+      <FormError
+        {...summary}
+        labels={{ email: t("fields.email"), password: t("fields.password") }}
+      />
       <FormField
         label={t("fields.email")}
         type="email"

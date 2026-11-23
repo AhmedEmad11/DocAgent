@@ -159,7 +159,8 @@
       "lockedOutReset": "Or reset your password.",
       "resetInvalid": "The reset code is not valid or has expired. Ask for a new one.",
       "confirmInvalid": "This confirmation link is not valid or has expired. Sign in and ask for a new one.",
-      "sessionEnded": "Your session ended. Sign in again."
+      "sessionEnded": "Your session ended. Sign in again.",
+      "summaryTitle": "There is a problem with the form:"
     }
   },
   "Account": {
@@ -447,7 +448,8 @@
       "privacyLink": "Privacy notice",
       "save": "Check and save key",
       "replace": "Check and replace key",
-      "checking": "Checking your key with the provider. This can take a few seconds."
+      "checking": "Checking your key with the provider. This can take a few seconds.",
+      "summaryTitle": "There is a problem with the form:"
     },
     "errors": {
       "keyRequired": "Enter your API key.",

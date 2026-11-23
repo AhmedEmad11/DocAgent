@@ -118,7 +118,7 @@ export function DemoBannerView({ demo }: { demo: DemoState }) {
             else safeSession((s) => s.setItem(SEEN_KEY, "1"), undefined);
           }}
         >
-          <summary className="cursor-pointer text-primary underline underline-offset-4">
+          <summary className="min-h-6 cursor-pointer py-1 text-primary underline underline-offset-4">
             {t("privacy")}
           </summary>
           <p className="mt-1 max-w-3xl text-start" data-testid="demo-privacy-text">

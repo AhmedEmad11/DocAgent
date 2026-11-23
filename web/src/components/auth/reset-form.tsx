@@ -12,7 +12,7 @@ import { useActionForm } from "./use-action-form";
 export function ResetForm() {
   const t = useTranslations("Auth");
   const locale = useLocale();
-  const { form, formError, retryAfter, pending, onSubmit } = useActionForm<ResetInput>({
+  const { form, summary, pending, onSubmit } = useActionForm<ResetInput>({
     schema: resetSchema,
     defaultValues: { email: "", resetCode: "", newPassword: "" },
     action: (values) => resetPasswordAction({ ...values, locale }),
@@ -22,7 +22,14 @@ export function ResetForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormError messageKey={formError} retryAfter={retryAfter} />
+      <FormError
+        {...summary}
+        labels={{
+          email: t("fields.email"),
+          resetCode: t("fields.resetCode"),
+          newPassword: t("fields.newPassword"),
+        }}
+      />
       <FormField
         label={t("fields.email")}
         type="email"

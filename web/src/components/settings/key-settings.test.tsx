@@ -76,17 +76,21 @@ describe("KeySettings (UI-KEY-1 to 6)", () => {
     expect(keyField()).toHaveAttribute("type", "password");
   });
 
-  it("validates before calling the API and puts focus on the first invalid field", async () => {
+  it("validates before calling the API and puts focus on the error summary, whose links name the fields", async () => {
     const api = makeApi();
     renderWithIntl(<KeySettings saved={null} demo api={api} />);
     await userEvent.click(screen.getByRole("button", { name: "Check and save key" }));
-    expect(screen.getByText("Enter your API key.")).toBeInTheDocument();
+    expect(screen.getByTestId("form-summary")).toHaveFocus();
+    expect(screen.getByTestId("form-summary")).toHaveTextContent(
+      "There is a problem with the form:",
+    );
+    expect(screen.getAllByText("Enter your API key.").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "API key: Enter your API key." })).toBeInTheDocument();
     expect(keyField()).toHaveAttribute("aria-invalid", "true");
-    expect(keyField()).toHaveFocus();
     await userEvent.type(keyField(), KEY);
     await userEvent.click(screen.getByRole("button", { name: "Check and save key" }));
-    expect(screen.getByText("Enter a model name.")).toBeInTheDocument();
-    expect(modelField()).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Model: Enter a model name." })).toBeInTheDocument();
+    expect(screen.getByTestId("form-summary")).toHaveFocus();
     expect(api.saveKey).not.toHaveBeenCalled();
   });
 

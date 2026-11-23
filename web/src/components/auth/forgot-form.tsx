@@ -14,7 +14,7 @@ export function ForgotForm() {
   const t = useTranslations("Auth");
   const locale = useLocale();
   const [sent, setSent] = useState(false);
-  const { form, formError, retryAfter, pending, onSubmit } = useActionForm<ForgotInput>({
+  const { form, summary, pending, onSubmit } = useActionForm<ForgotInput>({
     schema: forgotSchema,
     defaultValues: { email: "" },
     action: (values) => forgotPasswordAction({ ...values, locale }),
@@ -37,7 +37,7 @@ export function ForgotForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormError messageKey={formError} retryAfter={retryAfter} />
+      <FormError {...summary} labels={{ email: t("fields.email") }} />
       <FormField
         label={t("fields.email")}
         type="email"

@@ -41,9 +41,9 @@ export default async function CheckEmailPage({ params }: PageProps<"/[locale]/ch
             {t.rich("checkEmail.sentTo", {
               email,
               strong: (chunks) => (
-                <strong dir="ltr" className="font-semibold">
+                <bdi dir="ltr" className="font-semibold">
                   {chunks}
-                </strong>
+                </bdi>
               ),
             })}
           </>

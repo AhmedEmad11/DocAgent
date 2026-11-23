@@ -60,6 +60,13 @@ export function KeySettings({
   const keyRef = useRef<HTMLInputElement>(null);
   const modelRef = useRef<HTMLInputElement>(null);
   const focusAfter = useRef<KeyField | null>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const [summarySignal, setSummarySignal] = useState(0);
+
+  useEffect(() => {
+    // A failed validation puts focus on the error summary, whose links lead to the fields (UI-A11Y-3).
+    if (summarySignal > 0) summaryRef.current?.focus();
+  }, [summarySignal]);
 
   useEffect(() => {
     // Focus goes to the field the message is about (SRS 10.6), after the render that shows it.
@@ -94,7 +101,7 @@ export function KeySettings({
     const errors = validateKeyForm({ provider, key, model });
     setFieldErrors(errors);
     if (errors.key || errors.model) {
-      focusAfter.current = errors.key ? "key" : "model";
+      setSummarySignal((n) => n + 1);
       return;
     }
     setSaving(true);
@@ -183,6 +190,33 @@ export function KeySettings({
           className="space-y-5"
           data-testid="key-form"
         >
+          {fieldErrors.key || fieldErrors.model ? (
+            <div
+              ref={summaryRef}
+              tabIndex={-1}
+              role="alert"
+              data-testid="form-summary"
+              className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <p className="font-medium">{t("form.summaryTitle")}</p>
+              <ul className="mt-1 list-disc space-y-0.5 ps-5">
+                {fieldErrors.key ? (
+                  <li>
+                    <a href={`#${ids}-key`} className="text-primary underline underline-offset-4">
+                      {t("form.key")}: {tk(`errors.${fieldErrors.key}`)}
+                    </a>
+                  </li>
+                ) : null}
+                {fieldErrors.model ? (
+                  <li>
+                    <a href={`#${ids}-model`} className="text-primary underline underline-offset-4">
+                      {t("form.model")}: {tk(`errors.${fieldErrors.model}`)}
+                    </a>
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          ) : null}
           {problem ? <ProblemAlert problem={problem} ctx={{ area: "key-save", provider }} /> : null}
 
           <div className="space-y-1.5">

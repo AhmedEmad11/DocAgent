@@ -149,11 +149,16 @@ test.describe("key settings (UI-KEY-1 to 6)", () => {
   }) => {
     await openSettings(page, await demoUser("keyval"));
     await save(page);
-    await expect(page.getByText("Enter your API key.")).toBeVisible();
+    await expect(page.getByTestId("form-summary")).toBeFocused();
+    await expect(page.getByTestId("form-summary")).toContainText("Enter your API key.");
+    await page
+      .getByTestId("form-summary")
+      .getByRole("link", { name: /API key/ })
+      .click();
     await expect(page.getByTestId("key-input")).toBeFocused();
     await page.getByTestId("key-input").fill("short");
     await save(page);
-    await expect(page.getByText("The key is too short.")).toBeVisible();
+    await expect(page.getByTestId("form-summary")).toContainText("The key is too short.");
     expect(
       (await mockState()).keyCalls.filter((c) => c.op === "save" && c.model === ""),
     ).toHaveLength(0); // no call was made
@@ -260,10 +265,12 @@ test.describe("key settings: Arabic and accessibility", () => {
       }) => {
         await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         await openSettings(page, await demoUser(`axe${locale}${scheme}`), locale);
-        const serious = async () =>
-          (await new AxeBuilder({ page }).analyze()).violations.filter(
+        const serious = async () => {
+          await page.waitForTimeout(250); // let focus rings and fades settle before measuring colours
+          return (await new AxeBuilder({ page }).analyze()).violations.filter(
             (v) => v.impact === "serious" || v.impact === "critical",
           );
+        };
         expect(await serious()).toEqual([]);
 
         await page.getByTestId("key-input").fill("BADKEY-0123456789");

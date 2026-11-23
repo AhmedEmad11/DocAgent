@@ -24,9 +24,9 @@ test.describe("register, confirm, sign in", () => {
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill("abc");
     await page.getByRole("button", { name: "Create account" }).click();
-    await expect(page.getByText("The password needs an uppercase letter.")).toBeVisible();
-    await expect(page.getByText("The password needs a digit.")).toBeVisible();
-    await expect(page.getByText("The password needs at least 6 characters.")).toBeVisible();
+    await expect(page.getByText("The password needs an uppercase letter.").first()).toBeVisible();
+    await expect(page.getByText("The password needs a digit.").first()).toBeVisible();
+    await expect(page.getByText("The password needs at least 6 characters.").first()).toBeVisible();
 
     await page.getByLabel("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Create account" }).click();
@@ -93,8 +93,8 @@ test.describe("register, confirm, sign in", () => {
   test("sign-in validates the fields before calling the API", async ({ page }) => {
     await page.goto("/en/sign-in");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByText("Enter your email address.")).toBeVisible();
-    await expect(page.getByText("Enter a password.")).toBeVisible();
+    await expect(page.getByText("Enter your email address.").first()).toBeVisible();
+    await expect(page.getByText("Enter a password.").first()).toBeVisible();
     await expect(page.getByLabel("Email")).toHaveAttribute("aria-invalid", "true");
   });
 
@@ -299,7 +299,7 @@ test.describe("Arabic", () => {
 
     await page.goto("/ar/register");
     await page.getByRole("button", { name: "إنشاء الحساب" }).click();
-    await expect(page.getByText("أدخل عنوان بريدك الإلكتروني.")).toBeVisible();
+    await expect(page.getByText("أدخل عنوان بريدك الإلكتروني.").first()).toBeVisible();
   });
 
   test("the full path works in Arabic: sign in lands on the Arabic app page", async ({ page }) => {

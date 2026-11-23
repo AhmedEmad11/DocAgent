@@ -6,9 +6,12 @@ import { z } from "zod";
 export const emailSchema = z
   .string()
   .trim()
-  .min(1, "emailRequired")
-  .max(254, "emailInvalid")
-  .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "emailInvalid");
+  .superRefine((value, ctx) => {
+    // One message per problem: an empty field only asks for an address, it does not also call it invalid (UI-A11Y-3).
+    if (value.length === 0) ctx.addIssue({ code: "custom", message: "emailRequired" });
+    else if (value.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+      ctx.addIssue({ code: "custom", message: "emailInvalid" });
+  });
 
 /** D25: Identity defaults. The API stays the authority; this lists the rules before submit (UI-AUTH-1). */
 export const passwordRules = [

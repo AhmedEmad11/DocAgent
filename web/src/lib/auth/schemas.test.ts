@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  emailSchema,
   forgotSchema,
   newPasswordSchema,
   registerSchema,
@@ -68,5 +69,17 @@ describe("form schemas", () => {
         }),
       ),
     ).toEqual(["codeRequired"]);
+  });
+});
+
+describe("emailSchema messages", () => {
+  const emailMessages = (value: string) => messages(emailSchema.safeParse(value));
+  it("gives one message per problem: required for empty, invalid for a malformed address", () => {
+    expect(emailMessages("")).toEqual(["emailRequired"]);
+    expect(emailMessages("   ")).toEqual(["emailRequired"]);
+    expect(emailMessages("not-an-email")).toEqual(["emailInvalid"]);
+    expect(emailMessages("a@b")).toEqual(["emailInvalid"]);
+    expect(emailMessages(`${"x".repeat(250)}@b.co`)).toEqual(["emailInvalid"]);
+    expect(emailMessages("ana@example.com")).toEqual([]);
   });
 });

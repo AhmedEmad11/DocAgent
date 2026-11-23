@@ -20,7 +20,7 @@
   --destructive: oklch(0.52 0.22 27);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.88 0 0);
-  --input: oklch(0.88 0 0);
+  --input: oklch(0.58 0 0); /* 3:1 against the page for form control borders (WCAG 1.4.11) */
   --ring: oklch(0.48 0.2 262);
   --radius: 0.625rem;
 }
@@ -42,7 +42,7 @@
   --destructive: oklch(0.7 0.19 22);
   --destructive-foreground: oklch(0.145 0 0);
   --border: oklch(1 0 0 / 18%);
-  --input: oklch(1 0 0 / 22%);
+  --input: oklch(0.62 0 0);
   --ring: oklch(0.75 0.14 258);
 }
 
@@ -110,6 +110,13 @@ progress.meter::-moz-progress-bar {
   /* Arabic needs a little more line height. */
   html[lang="ar"] body {
     line-height: 1.75;
+  }
+  /* Focus rings are box-shadows, which Windows high-contrast mode (forced colors) removes: keep an outline there (UI-A11Y-1). */
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline: 2px solid CanvasText !important;
+      outline-offset: 2px !important;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     *,

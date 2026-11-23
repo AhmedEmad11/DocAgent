@@ -89,6 +89,7 @@ export function AskView({
   const [announcement, setAnnouncement] = useState("");
   const nextId = useRef(1);
   const aborter = useRef<AbortController | null>(null);
+  const questionRef = useRef<HTMLTextAreaElement>(null);
   const running = items.some((i) => i.state.phase === "running");
   const blocked = isBlocked(quota);
   const demo = quota !== null;
@@ -141,6 +142,7 @@ export function AskView({
     const text = question.trim();
     if (!text) {
       setEmptyError(true);
+      questionRef.current?.focus(); // the message is next to it (UI-A11Y-3)
       return;
     }
     setEmptyError(false);
@@ -201,6 +203,7 @@ export function AskView({
           </label>
           <textarea
             id="question"
+            ref={questionRef}
             name="question"
             dir="auto"
             rows={4}
@@ -219,13 +222,18 @@ export function AskView({
             <span id="question-error" className="text-destructive">
               {emptyError ? t("errors.empty") : null}
             </span>
-            <span id="question-count" className="text-muted-foreground" data-testid="counter">
+            <span
+              id="question-count"
+              dir="ltr"
+              className="text-muted-foreground"
+              data-testid="counter"
+            >
               {t("counter", { count: question.length, max: MAX_QUESTION })}
             </span>
           </div>
         </div>
 
-        <fieldset className="space-y-2">
+        <fieldset className="space-y-3">
           <legend className="text-sm font-medium">{t("scopeLegend")}</legend>
           <label className="flex items-center gap-2">
             <input
@@ -234,7 +242,7 @@ export function AskView({
               checked={scope === "all"}
               onChange={() => setScope("all")}
               disabled={running}
-              className="size-4"
+              className="size-5"
             />
             {t("scopeAll", { count: ready.length })}
           </label>
@@ -245,13 +253,13 @@ export function AskView({
               checked={scope === "some"}
               onChange={() => setScope("some")}
               disabled={running}
-              className="size-4"
+              className="size-5"
             />
             {t("scopeSome")}
           </label>
           {scope === "some" ? (
             <ul
-              className="max-h-60 space-y-1 overflow-y-auto rounded-md border border-border p-3"
+              className="max-h-60 space-y-2 overflow-y-auto rounded-md border border-border p-3"
               data-testid="scope-list"
             >
               {documents.map((d) => {
@@ -263,7 +271,7 @@ export function AskView({
                     >
                       <input
                         type="checkbox"
-                        className="size-4"
+                        className="size-5"
                         checked={selected.has(d.id)}
                         disabled={!selectable || running}
                         onChange={() => toggle(d.id)}

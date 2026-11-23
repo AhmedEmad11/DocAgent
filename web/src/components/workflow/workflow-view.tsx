@@ -122,7 +122,13 @@ export function WorkflowView({
         : { kind, documentIdA: a, documentIdB: b, focus };
     const invalid = validateWorkflow(request);
     setError(invalid);
-    if (invalid) return;
+    if (invalid) {
+      // The message sits above the buttons; focus goes to the control that needs fixing (UI-A11Y-3).
+      const target =
+        invalid === "chooseTwo" && a ? "doc-b" : invalid === "sameDocument" ? "doc-b" : "doc-a";
+      document.getElementById(target)?.focus();
+      return;
+    }
     const controller = new AbortController();
     aborter.current = controller;
     setState({ phase: "running" });
@@ -234,7 +240,7 @@ export function WorkflowView({
           />
           <div className="flex justify-between gap-2 text-sm text-muted-foreground">
             <span id="focus-hint">{t("focusHint")}</span>
-            <span id="focus-count" data-testid="focus-count">
+            <span id="focus-count" dir="ltr" data-testid="focus-count">
               {t("counter", { count: focus.length, max: MAX_FOCUS })}
             </span>
           </div>

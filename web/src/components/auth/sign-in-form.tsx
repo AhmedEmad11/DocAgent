@@ -12,7 +12,7 @@ import { useActionForm } from "./use-action-form";
 export function SignInForm({ next }: { next?: string | undefined }) {
   const t = useTranslations("Auth");
   const locale = useLocale();
-  const { form, formError, retryAfter, pending, onSubmit } = useActionForm<SignInInput>({
+  const { form, summary, pending, onSubmit } = useActionForm<SignInInput>({
     schema: signInSchema,
     defaultValues: { email: "", password: "" },
     action: (values) => signInAction({ ...values, locale, next }),
@@ -22,7 +22,10 @@ export function SignInForm({ next }: { next?: string | undefined }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
-      <FormError messageKey={formError} retryAfter={retryAfter} />
+      <FormError
+        {...summary}
+        labels={{ email: t("fields.email"), password: t("fields.password") }}
+      />
       <FormField
         label={t("fields.email")}
         type="email"

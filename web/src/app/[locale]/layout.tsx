@@ -59,7 +59,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
         <NextIntlClientProvider>
           <SiteHeader />
           <DemoBanner />
-          <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
+          <main
+            id="main"
+            tabIndex={-1}
+            className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 outline-none"
+          >
             {children}
           </main>
           <SiteFooter />
