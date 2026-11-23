@@ -92,13 +92,13 @@ public static class HttpHardening
     // ---- CORS ----
 
     /// <summary>
-    /// CORS is off unless <c>Cors:AllowedOrigins</c> lists origins (the Next.js UI, Phase 9). Only those exact origins, the methods
-    /// and headers the API uses, no credentials (the API uses bearer tokens, not cookies).
+    /// CORS is off unless <c>Cors:AllowedOrigins</c> lists origins (the Next.js UI, Phase 9). Even then it covers one route only: the browser's
+    /// direct file upload (<c>POST /api/v1/documents</c> with an <c>X-Upload-Ticket</c>, plan A3 / D40). Only those exact origins, no credentials
+    /// (the upload carries a one-time ticket, not a token or a cookie); every other route stays closed to browsers (the BFF calls them server to server).
     /// </summary>
     public static IServiceCollection AddUiCors(this IServiceCollection services, IConfiguration configuration)
     {
-        var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()?
-            .Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.TrimEnd('/')).ToArray() ?? [];
+        var origins = UiOrigins(configuration);
         if (origins.Any(o => o == "*"))
         {
             throw new InvalidOperationException("Cors:AllowedOrigins must list explicit origins; '*' is not allowed.");
@@ -108,8 +108,8 @@ public static class HttpHardening
         {
             services.AddCors(options => options.AddPolicy(CorsPolicy, policy => policy
                 .WithOrigins(origins)
-                .WithMethods("GET", "POST", "PUT", "DELETE")
-                .WithHeaders("Authorization", "Content-Type", "X-Llm-Api-Key")
+                .WithMethods("POST")
+                .WithHeaders("X-Upload-Ticket", "Content-Type")
                 .WithExposedHeaders("Retry-After")
                 .SetPreflightMaxAge(TimeSpan.FromMinutes(10))));
         }
@@ -117,11 +117,16 @@ public static class HttpHardening
         return services;
     }
 
-    public static IApplicationBuilder UseUiCors(this IApplicationBuilder app, IConfiguration configuration)
-    {
-        var any = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()?.Any(o => !string.IsNullOrWhiteSpace(o)) == true;
-        return any ? app.UseCors(CorsPolicy) : app;
-    }
+    /// <summary>True when UI origins are configured, so the upload route should carry the CORS policy.</summary>
+    public static bool HasUiOrigins(IConfiguration configuration) => UiOrigins(configuration).Length > 0;
+
+    private static string[] UiOrigins(IConfiguration configuration) =>
+        configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()?
+            .Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.TrimEnd('/')).ToArray() ?? [];
+
+    /// <summary>Adds the CORS middleware; it acts only on endpoints that name the policy (<c>RequireCors</c>).</summary>
+    public static IApplicationBuilder UseUiCors(this IApplicationBuilder app, IConfiguration configuration) =>
+        HasUiOrigins(configuration) ? app.UseCors() : app;
 
     // ---- host names ----
 

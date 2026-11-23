@@ -57,7 +57,7 @@ You enter these in the SnapDeploy UI for the container (Environment Variables). 
 | `Authentication__External__AllowedReturnUrls__0` | the UI origin, for example `https://<your-ui>.vercel.app` (leave out until the UI exists) | no |
 | `Authentication__Google__ClientId` / `Authentication__GitHub__ClientId` | OAuth client ids (S7) | no |
 | `Authentication__Google__ClientSecret` / `Authentication__GitHub__ClientSecret` | OAuth client secrets (S7) | **yes** |
-| `Cors__AllowedOrigins__0` | leave unset (the UI calls the API server to server, D39; set it only for the direct upload, D40) | no |
+| `Cors__AllowedOrigins__0` | the UI origin, e.g. `https://<project>.vercel.app`. Needed for uploads from the UI (D40): it opens the upload route only (`POST /documents` with `X-Upload-Ticket`); leave unset until the UI is deployed | no |
 | `Embeddings__BatchSize` and the memory settings (S9) | image defaults; override only to experiment | no |
 
 Not needed on SnapDeploy: `HttpsRedirection__Enabled` (Production default `false`), `Llm__NoKeyRoute` (Production default `Demo`), `Email__Smtp__Host/Port/UseStartTls` (Production defaults for Brevo).

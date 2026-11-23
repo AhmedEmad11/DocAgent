@@ -53,6 +53,7 @@ public static class EndpointInventory
 
         // Documents and questions.
         ["POST /api/v1/documents"] = AuthDecision.ConfirmedEmail,
+        ["POST /api/v1/documents/upload-ticket"] = AuthDecision.ConfirmedEmail,
         ["GET /api/v1/documents"] = AuthDecision.ConfirmedEmail,
         ["GET /api/v1/documents/{id}"] = AuthDecision.ConfirmedEmail,
         ["DELETE /api/v1/documents/{id}"] = AuthDecision.ConfirmedEmail,

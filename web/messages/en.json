@@ -162,13 +162,129 @@
     }
   },
   "Account": {
-    "title": "Documents",
     "email": "Signed in as",
     "methods": "Linked sign-in providers",
-    "methodsNone": "None (email and password)",
-    "soon": "Your documents will appear here soon.",
+    "methodsNone": "None (email and password)"
+  },
+  "Errors": {
+    "demoQuota": "You have used today's demo questions. They reset at {time}. Add your own API key to keep going now.",
+    "demoQuotaNoTime": "You have used today's demo questions. Add your own API key to keep going now.",
+    "demoBusy": "The free demo models are busy. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+    "demoUnavailable": "The demo is unavailable right now. You can add your own API key to use DocAgent.",
+    "keyRequired": "Add an API key in Settings to ask questions.",
+    "keyInvalidSave": "The provider did not accept this key. Check that you copied it fully and that it is for {provider}.",
+    "keyInvalidUse": "Your saved key was rejected by the provider. Replace it in Settings.",
+    "noCredit": "Your {provider} account has no credit left. Add credit with the provider or use another key.",
+    "providerLimit": "Your provider is limiting requests. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+    "providerDown": "The model provider is not responding. Try again in a minute.",
+    "modelUnknown": "That model is not available for this key. Choose another model.",
+    "requestRejected": "The provider could not process this request. Try again, or choose another model.",
+    "keyUnreadable": "We could not read your saved key. Please save it again.",
+    "checkFields": "Check the highlighted fields.",
+    "sessionEnded": "Your session ended. Sign in again.",
+    "confirmEmail": "Confirm your email address first. We sent you a link.",
+    "docGone": "This document no longer exists.",
+    "documentLimit": "You have reached your document limit ({limit}).",
+    "docNotReady": "This document is not ready yet.",
+    "conflict": "Another change happened at the same time, try again.",
+    "tooLarge": "This file is larger than your limit of {size}.",
+    "unsupported": "Only PDF, Word (.docx), text (.txt) and Markdown (.md) files are supported.",
+    "tooMany": "Too many requests. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+    "tooManyNoWait": "Too many requests. Wait a moment and try again.",
+    "maxQuestions": "You already have the maximum number of questions running.",
+    "server": "Something went wrong on our side. Try again.",
+    "serviceDown": "The service is not responding. Try again in a moment.",
+    "tookTooLong": "The question took too long. Try a narrower question or fewer documents.",
+    "network": "Cannot reach the service. Check your connection; the service may be waking up.",
+    "forbidden": "This request was blocked. Reload the page and try again.",
+    "generic": "Something went wrong. Try again.",
+    "actions": {
+      "settings": "Add an API key",
+      "retry": "Try again",
+      "retryIn": "Try again in {seconds, plural, one {# second} other {# seconds}}",
+      "signIn": "Sign in",
+      "resend": "Go to the page where you can resend the email",
+      "refresh": "Refresh"
+    }
+  },
+  "Documents": {
+    "title": "Documents",
+    "signedInAs": "Signed in as",
+    "intro": "Upload the files you want to ask about. PDF, Word, text and Markdown files work.",
     "unconfirmedTitle": "Confirm your email address first",
     "unconfirmedBody": "We sent you a link. Until you confirm it, documents and questions are not available.",
-    "checkAgain": "I confirmed it, check again"
+    "checkAgain": "I confirmed it, check again",
+    "usage": {
+      "documents": "Documents: {count} of {limit}",
+      "chunks": "Storage: {used, number, integer} of {limit, number, integer} text chunks",
+      "high": "You have used more than 80% of your storage. Delete documents you no longer need to free space.",
+      "help": "Storage is filled by the text chunks of your documents. Deleting a document frees its chunks."
+    },
+    "upload": {
+      "title": "Upload documents",
+      "drop": "Drag files here, or",
+      "choose": "choose files",
+      "rules": "PDF, Word (.docx), text (.txt) and Markdown (.md), up to {size} each.",
+      "dragging": "Drop the files to upload them",
+      "atLimit": "You have reached the limit of {limit, plural, one {# document} other {# documents}}. Delete a document to upload another.",
+      "atLimitDemo": "Add your own API key in Settings to raise the limit.",
+      "unconfirmed": "Confirm your email address to upload documents.",
+      "queued": "Waiting",
+      "uploading": "Uploading",
+      "done": "Uploaded",
+      "failed": "Not uploaded",
+      "progress": "Upload progress for {name}",
+      "dismiss": "Dismiss {name}",
+      "clear": "Clear the list",
+      "empty": "This file is empty.",
+      "queueLabel": "Uploads",
+      "announceDone": "{name} was uploaded and is waiting to be processed.",
+      "announceFailed": "{name} could not be uploaded."
+    },
+    "list": {
+      "title": "Your documents",
+      "loading": "Loading your documents",
+      "empty": "You have no documents yet.",
+      "emptyHelp": "Upload a PDF, Word (.docx), text (.txt) or Markdown (.md) file above. Files up to {size} work for your account.",
+      "error": "We could not load your documents.",
+      "retry": "Try again",
+      "refreshFailed": "The list could not be refreshed. We will try again.",
+      "pages": "{count, plural, one {# page} other {# pages}}",
+      "chunks": "{count, plural, one {# chunk} other {# chunks}}",
+      "uploaded": "Uploaded <time>{date}</time>",
+      "kind": {
+        "pdf": "PDF",
+        "docx": "Word",
+        "text": "Text",
+        "markdown": "Markdown",
+        "other": "File"
+      }
+    },
+    "status": {
+      "Pending": "Waiting",
+      "Processing": "Processing",
+      "Ready": "Ready",
+      "Failed": "Failed",
+      "announce": "{name}: {status}"
+    },
+    "failed": {
+      "reason": "Why it failed:",
+      "scanned": "Scanned PDFs are not supported. Upload a text-based version, or a Word or text file.",
+      "storage": "Delete documents you no longer need to free space, then upload this file again.",
+      "other": "Delete this document and upload the file again. If it fails again, try another file."
+    },
+    "notice": {
+      "label": "Note about this document:"
+    },
+    "delete": {
+      "action": "Delete",
+      "actionFor": "Delete {name}",
+      "title": "Delete this document?",
+      "body": "The text and embeddings of <file>{name}</file> are removed permanently. This cannot be undone.",
+      "confirm": "Delete permanently",
+      "cancel": "Cancel",
+      "deleting": "Deleting",
+      "announce": "{name} was deleted."
+    }
   }
 }

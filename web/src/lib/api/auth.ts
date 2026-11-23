@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { apiJson, apiVoid, type ApiRequestInit, type ApiResult } from "./client";
+import { meSchema, type Me } from "./me-schema";
+
+export type { Me };
 
 type Visitor = Pick<ApiRequestInit, "visitorHeaders">;
 
@@ -10,25 +13,6 @@ const tokenSchema = z.object({
   refreshToken: z.string().min(1),
 });
 export type TokenResponse = z.infer<typeof tokenSchema>;
-
-const meSchema = z.object({
-  id: z.string(),
-  email: z.string().nullable(),
-  emailConfirmed: z.boolean(),
-  externalLogins: z.array(z.string()),
-  hasLlmKey: z.boolean(),
-  demo: z
-    .object({
-      limit: z.number(),
-      used: z.number(),
-      remaining: z.number(),
-      resetsAt: z.string(),
-      privacyNotice: z.string(),
-    })
-    .nullish(),
-  chunks: z.object({ used: z.number(), limit: z.number() }),
-});
-export type Me = z.infer<typeof meSchema>;
 
 export const register = (v: Visitor, email: string, password: string) =>
   apiVoid("/auth/register", { ...v, method: "POST", json: { email, password } });

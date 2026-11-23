@@ -18,6 +18,7 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.52 0.22 27);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.88 0 0);
   --input: oklch(0.88 0 0);
   --ring: oklch(0.48 0.2 262);
@@ -39,6 +40,7 @@
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.7 0.19 22);
+  --destructive-foreground: oklch(0.145 0 0);
   --border: oklch(1 0 0 / 18%);
   --input: oklch(1 0 0 / 22%);
   --ring: oklch(0.75 0.14 258);
@@ -58,6 +60,7 @@
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -65,6 +68,33 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --font-sans: var(--font-latin), var(--font-arabic), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Meters and upload progress: native <progress>, styled without inline styles (the CSP forbids them). */
+progress.meter {
+  appearance: none;
+  display: block;
+  inline-size: 100%;
+  block-size: 0.5rem;
+  border: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--muted);
+  color: var(--primary);
+}
+progress.meter[data-high] {
+  color: var(--destructive);
+}
+progress.meter::-webkit-progress-bar {
+  background: var(--muted);
+}
+progress.meter::-webkit-progress-value {
+  background: currentColor;
+  border-radius: 9999px;
+}
+progress.meter::-moz-progress-bar {
+  background: currentColor;
+  border-radius: 9999px;
 }
 
 @layer base {

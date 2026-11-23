@@ -1,7 +1,8 @@
 // Mock of the DocAgent API for e2e (plan 9.0, SRS 10.5). It mirrors the real responses of ASP.NET Core Identity's API endpoints
 // (verified against the plan's A8 notes): register/reset validation problems keyed by Identity error code, login 401 with
 // detail "Failed"/"LockedOut", /refresh returning a NEW refresh token while the old one stays valid, confirmEmail 200 text or 401.
-// Endpoints for documents and ask are added in 9.2 and 9.3. Everything in memory; test hooks live under /__test/.
+// Documents (9.2) include the upload-ticket flow with CORS on the upload route only (plan A3); ask comes in 9.3.
+// Everything in memory; test hooks live under /__test/.
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 
@@ -27,6 +28,24 @@ const state = {
   untrustedCalls: 0,
   externalOutcome: "ok",
   lastExchangeCode: null,
+  ticketsIssued: 0,
+  uploads: [], // {name, size, auth: "ticket" | "bearer"}
+  listCalls: 0,
+};
+const tickets = new Map(); // ticket -> {email, expires}
+const UI_ORIGIN = process.env.MOCK_UI_ORIGIN ?? "http://127.0.0.1:3100";
+const LIMITS = {
+  demo: { documents: 3, bytes: 5 * 1024 * 1024, chunks: 3000 },
+  byok: { documents: 100, bytes: 25 * 1024 * 1024, chunks: 20000 },
+};
+const SCANNED = "No extractable text: scanned PDFs are not supported.";
+const STORAGE =
+  "Storage limit reached: 2,990 of 3,000 chunks used, and this document needs 40 more. Delete a document to free space.";
+const CONTENT_TYPES = {
+  ".pdf": "application/pdf",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".txt": "text/plain",
+  ".md": "text/markdown",
 };
 
 function seed() {
@@ -71,6 +90,70 @@ async function readJson(req) {
   } catch {
     return {};
   }
+}
+
+async function readBody(req) {
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  return Buffer.concat(chunks);
+}
+
+/** Finds the `file` part of a multipart body: name and size of its content. */
+function parseMultipartFile(buf, contentType) {
+  const boundary = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+  if (!boundary) return null;
+  const marker = Buffer.from(`--${boundary[1] ?? boundary[2]}`);
+  const start = buf.indexOf(marker);
+  if (start < 0) return null;
+  const headEnd = buf.indexOf("\r\n\r\n", start);
+  if (headEnd < 0) return null;
+  const head = buf.subarray(start, headEnd).toString("utf8");
+  if (!/name="file"/.test(head)) return null;
+  const name = /filename="([^"]*)"/.exec(head)?.[1];
+  const end = buf.indexOf(Buffer.concat([Buffer.from("\r\n"), marker]), headEnd + 4);
+  const size = (end < 0 ? buf.length : end) - (headEnd + 4);
+  return name && size > 0 ? { name, size } : null;
+}
+
+function makeDocument(fileName, sizeBytes, opts) {
+  const ext = (fileName.match(/\.[^.]+$/)?.[0] ?? "").toLowerCase();
+  const scanned = fileName.includes("scan");
+  const storage = fileName.includes("storage");
+  return {
+    id: opts.id ?? crypto.randomUUID(),
+    fileName,
+    contentType: opts.contentType ?? CONTENT_TYPES[ext] ?? "text/plain",
+    sizeBytes,
+    pageCount: opts.pageCount ?? (ext === ".pdf" ? 3 : null),
+    chunkCount: opts.chunkCount ?? Math.max(1, Math.ceil(sizeBytes / 1000)),
+    status: opts.status ?? "Pending",
+    hold: opts.status !== undefined, // seeded with an explicit status: stays as seeded
+    finalStatus: scanned || storage ? "Failed" : "Ready",
+    failureReason: opts.failureReason ?? (scanned ? SCANNED : storage ? STORAGE : null),
+    extractionNotice:
+      opts.extractionNotice ??
+      (fileName.includes("arabic")
+        ? "Arabic text was repaired after extraction; check the wording."
+        : null),
+    createdAt: opts.createdAt ?? new Date().toISOString(),
+  };
+}
+
+/** One step per list call: Pending -> Processing -> Ready/Failed. */
+function advance(d) {
+  if (d.hold) return;
+  if (d.status === "Pending") d.status = "Processing";
+  else if (d.status === "Processing") d.status = d.finalStatus;
+}
+
+function publicDoc(d) {
+  const { hold, finalStatus, ...rest } = d;
+  void hold;
+  void finalStatus;
+  const out = { ...rest };
+  if (out.status !== "Failed") out.failureReason = null;
+  if (out.status === "Pending" || out.status === "Processing") out.chunkCount = 0;
+  return out;
 }
 
 const IDENTITY_MESSAGES = {
@@ -137,6 +220,9 @@ async function handle(req, res) {
         untrustedCalls: 0,
         externalOutcome: "ok",
         lastExchangeCode: null,
+        ticketsIssued: 0,
+        uploads: [],
+        listCalls: 0,
       });
       return json(res, 200, state);
     }
@@ -158,6 +244,22 @@ async function handle(req, res) {
         failures: 0,
       });
       return json(res, 200, { email });
+    }
+    if (path === "/__test/documents") {
+      // Seeds documents (status held, so the list does not advance) and optionally switches the tier.
+      const user = users.get(norm(body.email));
+      if (body.hasKey !== undefined) user.hasKey = Boolean(body.hasKey);
+      if (body.chunksUsed !== undefined) user.chunksUsed = body.chunksUsed;
+      user.docs = (body.documents ?? []).map((d) =>
+        makeDocument(d.fileName, d.sizeBytes ?? 1000, d),
+      );
+      return json(res, 200, { count: user.docs.length });
+    }
+    if (path === "/__test/next-upload-error") {
+      state.nextUploadError = body.status
+        ? { status: body.status, code: body.code, retryAfter: body.retryAfter }
+        : null;
+      return json(res, 200, {});
     }
     if (path === "/__test/expire") {
       for (const t of accessTokens.values()) if (t.email === norm(body.email)) t.expired = true;
@@ -320,6 +422,156 @@ async function handle(req, res) {
     return json(res, 200, issueTokens(email));
   }
 
+  // ---- documents (9.2) ----
+  const bearer = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
+  const bearerRec = bearer && accessTokens.get(bearer);
+  const bearerUser = bearerRec && !bearerRec.expired ? bearerRec.email : null;
+
+  // CORS for the one route the browser calls directly (A3): only the UI origin, no credentials.
+  const origin = req.headers.origin;
+  const corsHeaders =
+    origin === UI_ORIGIN
+      ? {
+          "access-control-allow-origin": origin,
+          "access-control-expose-headers": "Retry-After",
+          vary: "Origin",
+        }
+      : {};
+  if (route === "/documents" && req.method === "OPTIONS") {
+    if (origin !== UI_ORIGIN) {
+      res.writeHead(403);
+      return res.end();
+    }
+    res.writeHead(204, {
+      ...corsHeaders,
+      "access-control-allow-methods": "POST",
+      "access-control-allow-headers": "X-Upload-Ticket, Content-Type",
+      "access-control-max-age": "600",
+    });
+    return res.end();
+  }
+
+  if (route === "/documents/upload-ticket" && req.method === "POST") {
+    if (!bearerUser) {
+      res.writeHead(401);
+      return res.end();
+    }
+    if (!users.get(bearerUser).confirmed) return problem(res, 403, "Forbidden");
+    const ticket = `MOCKTICKET-${rand(16)}`;
+    tickets.set(ticket, { email: bearerUser, expires: Date.now() + 60_000 });
+    state.ticketsIssued++;
+    return json(res, 200, { ticket, expiresInSeconds: 60 });
+  }
+
+  if (route === "/documents" && req.method === "POST") {
+    // Bearer token or one-time ticket, never a cookie.
+    let email = bearerUser;
+    let auth = "bearer";
+    const ticketValue = req.headers["x-upload-ticket"];
+    if (!email && typeof ticketValue === "string") {
+      const rec = tickets.get(ticketValue);
+      tickets.delete(ticketValue); // single use, also when expired
+      if (rec && rec.expires > Date.now()) {
+        email = rec.email;
+        auth = "ticket";
+      }
+    }
+    if (!email) {
+      res.writeHead(401, corsHeaders);
+      return res.end();
+    }
+    const user = users.get(email);
+    if (!user.confirmed) return problem(res, 403, "Forbidden", {}, corsHeaders);
+    const tier = user.hasKey ? LIMITS.byok : LIMITS.demo;
+    const raw = await readBody(req);
+    const file = parseMultipartFile(raw, String(req.headers["content-type"] ?? ""));
+    if (!file)
+      return problem(
+        res,
+        400,
+        "Bad request",
+        { detail: "Attach a non-empty file in a form field named 'file'." },
+        corsHeaders,
+      );
+    state.uploads.push({ name: file.name, size: file.size, auth });
+    if (file.name.includes("slow")) await new Promise((r) => setTimeout(r, 1500));
+    if (state.nextUploadError) {
+      const e = state.nextUploadError;
+      state.nextUploadError = null;
+      return problem(res, e.status, "Error", e.code ? { code: e.code } : {}, {
+        ...corsHeaders,
+        ...(e.retryAfter ? { "retry-after": String(e.retryAfter) } : {}),
+      });
+    }
+    if (file.name.includes("throttled"))
+      return problem(
+        res,
+        429,
+        "Too many requests",
+        { detail: "Too many attempts. Try again later." },
+        { ...corsHeaders, "retry-after": "2" },
+      );
+    const ext = (file.name.match(/\.[^.]+$/)?.[0] ?? "").toLowerCase();
+    if (!CONTENT_TYPES[ext])
+      return problem(
+        res,
+        415,
+        "Unsupported file type",
+        { detail: "Unsupported file type." },
+        corsHeaders,
+      );
+    if (file.size > tier.bytes)
+      return problem(
+        res,
+        413,
+        "File too large",
+        { detail: "The file is larger than the limit for your account." },
+        corsHeaders,
+      );
+    if ((user.docs ?? []).length >= tier.documents)
+      return problem(
+        res,
+        409,
+        "Conflict",
+        { detail: `You have reached the limit of ${tier.documents} documents for your account.` },
+        corsHeaders,
+      );
+    const doc = makeDocument(file.name, file.size, {});
+    user.docs = [doc, ...(user.docs ?? [])];
+    res.writeHead(202, {
+      "content-type": "application/json",
+      ...corsHeaders,
+      location: `/api/v1/documents/${doc.id}`,
+    });
+    return res.end(JSON.stringify({ id: doc.id, fileName: doc.fileName, status: "Pending" }));
+  }
+
+  if (route.startsWith("/documents")) {
+    if (!bearerUser) {
+      res.writeHead(401);
+      return res.end();
+    }
+    const user = users.get(bearerUser);
+    if (!user.confirmed) return problem(res, 403, "Forbidden");
+    user.docs ??= [];
+    if (route === "/documents" && req.method === "GET") {
+      state.listCalls++;
+      for (const d of user.docs) advance(d);
+      return json(res, 200, user.docs.map(publicDoc));
+    }
+    const one = route.match(/^\/documents\/([0-9a-f-]{36})$/);
+    if (one) {
+      const d = user.docs.find((x) => x.id === one[1]);
+      if (!d) return problem(res, 404, "Not found", { detail: "Document not found." });
+      if (req.method === "GET") return json(res, 200, publicDoc(d));
+      if (req.method === "DELETE") {
+        user.docs = user.docs.filter((x) => x !== d);
+        res.writeHead(204);
+        return res.end();
+      }
+    }
+  }
+
   if (route === "/me" && req.method === "GET") {
     const token = /^Bearer (.+)$/.exec(req.headers.authorization ?? "")?.[1];
     const rec = token && accessTokens.get(token);
@@ -333,9 +585,16 @@ async function handle(req, res) {
       email: rec.email,
       emailConfirmed: user.confirmed,
       externalLogins: user.externalLogins,
-      hasLlmKey: false,
+      hasLlmKey: Boolean(user.hasKey),
       demo: null,
-      chunks: { used: 0, limit: 0 },
+      chunks: {
+        used:
+          user.chunksUsed ??
+          (user.docs ?? [])
+            .filter((d) => d.status === "Ready")
+            .reduce((n, d) => n + d.chunkCount, 0),
+        limit: (user.hasKey ? LIMITS.byok : LIMITS.demo).chunks,
+      },
     });
   }
 

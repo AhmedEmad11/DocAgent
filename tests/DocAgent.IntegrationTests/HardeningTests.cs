@@ -187,12 +187,12 @@ public sealed class HardeningTests(PostgresFixture postgres)
         Assert.False((await plainClient.SendAsync(spoof)).Headers.Contains("Strict-Transport-Security"));
     }
 
-    private static async Task<HttpResponseMessage> PreflightAsync(HttpClient client, string origin)
+    private static async Task<HttpResponseMessage> PreflightAsync(HttpClient client, string origin, string path = "/api/v1/documents", string headers = "x-upload-ticket,content-type")
     {
-        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/v1/ask");
+        using var request = new HttpRequestMessage(HttpMethod.Options, path);
         request.Headers.Add("Origin", origin);
         request.Headers.Add("Access-Control-Request-Method", "POST");
-        request.Headers.Add("Access-Control-Request-Headers", "authorization,content-type");
+        request.Headers.Add("Access-Control-Request-Headers", headers);
         return await client.SendAsync(request);
     }
 
@@ -208,7 +208,7 @@ public sealed class HardeningTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task Cors_allows_only_the_configured_origin_without_credentials()
+    public async Task Cors_opens_only_the_upload_route_to_the_configured_origin_without_credentials()
     {
         await using var factory = await NewFactoryAsync(new Dictionary<string, string?>(NoWorker) { ["Cors:AllowedOrigins:0"] = "http://localhost:3000" });
         using var client = factory.CreateClient();
@@ -216,19 +216,32 @@ public sealed class HardeningTests(PostgresFixture postgres)
         var allowed = await PreflightAsync(client, "http://localhost:3000");
         Assert.Equal("http://localhost:3000", allowed.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.False(allowed.Headers.Contains("Access-Control-Allow-Credentials"));
-        Assert.Contains("authorization", string.Join(",", allowed.Headers.GetValues("Access-Control-Allow-Headers")), StringComparison.OrdinalIgnoreCase);
+        var allowedHeaders = string.Join(",", allowed.Headers.GetValues("Access-Control-Allow-Headers"));
+        Assert.Contains("x-upload-ticket", allowedHeaders, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("authorization", allowedHeaders, StringComparison.OrdinalIgnoreCase);
 
         foreach (var other in new[] { "https://evil.example", "http://localhost:3001", "http://localhost:3000.evil.example", "null" })
         {
             Assert.False((await PreflightAsync(client, other)).Headers.Contains("Access-Control-Allow-Origin"), other);
         }
 
-        // A simple cross-origin call gets the header only for the allowed origin; Retry-After is readable by the UI.
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/live");
-        request.Headers.Add("Origin", "http://localhost:3000");
-        var simple = await client.SendAsync(request);
+        // No other route is open to browsers, not even preflights for the same origin.
+        foreach (var path in new[] { "/api/v1/ask", "/api/v1/me", "/api/v1/documents/compare", "/health/live" })
+        {
+            Assert.False((await PreflightAsync(client, "http://localhost:3000", path, "authorization,content-type")).Headers.Contains("Access-Control-Allow-Origin"), path);
+        }
+
+        // The upload itself: the allowed origin may read the answer (also an error), including Retry-After; a foreign origin may not.
+        using var upload = new HttpRequestMessage(HttpMethod.Post, "/api/v1/documents");
+        upload.Headers.Add("Origin", "http://localhost:3000");
+        var simple = await client.SendAsync(upload);
+        Assert.Equal(HttpStatusCode.Unauthorized, simple.StatusCode); // no ticket, no token
         Assert.Equal("http://localhost:3000", simple.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.Contains("Retry-After", string.Join(",", simple.Headers.GetValues("Access-Control-Expose-Headers")));
+
+        using var health = new HttpRequestMessage(HttpMethod.Get, "/health/live");
+        health.Headers.Add("Origin", "http://localhost:3000");
+        Assert.False((await client.SendAsync(health)).Headers.Contains("Access-Control-Allow-Origin"));
     }
 
     [Fact]

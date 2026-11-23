@@ -2,6 +2,7 @@ using DocAgent.Api.Auth;
 using DocAgent.Api.Security;
 using Microsoft.AspNetCore.RateLimiting;
 using DocAgent.Core.Abstractions;
+using DocAgent.Core.Auth;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Data;
 using DocAgent.Infrastructure.Ingestion;
@@ -27,13 +28,15 @@ public static class DocumentEndpoints
 
     public sealed record UploadResponse(Guid Id, string FileName, string Status);
 
+    public sealed record UploadTicketResponse(string Ticket, int ExpiresInSeconds);
+
     public static void MapDocuments(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/documents").RequireAuthorization(AuthPolicies.EmailConfirmed).WithTags("Documents");
 
         // The request-size limit is set per request inside UploadAsync (IHttpMaxRequestBodySizeFeature), from the caller's tier.
-        group.MapPost("", UploadAsync)
-            .DisableAntiforgery() // bearer-token API: no cookie auth, so no CSRF surface
+        var upload = group.MapPost("", UploadAsync)
+            .DisableAntiforgery() // bearer-token or one-time-ticket API: no cookie auth, so no CSRF surface
             .RequireRateLimiting(ResourceRateLimiting.UploadPolicy)
             .Accepts<UploadForm>("multipart/form-data")
             .Produces<UploadResponse>(StatusCodes.Status202Accepted)
@@ -46,7 +49,27 @@ public static class DocumentEndpoints
                 "Send one file in a multipart/form-data field named 'file': PDF (text-based), Word (.docx), plain text (.txt) or Markdown (.md). "
                 + "The type is checked by content, not only by the extension. Returns 202 with the document id at once; extraction, chunking and embedding run in the "
                 + "background, so poll GET /api/v1/documents/{id} until status is Ready or Failed. Limits: demo accounts 3 documents of up to 5 MB, accounts with their own LLM key "
-                + "100 documents of up to 25 MB (413 when the file is too large, 409 at the document limit). A document is also marked Failed when its chunks would exceed the account's total chunk limit (3,000 demo, 20,000 own key; see chunks in GET /api/v1/me). At most 2 uploads per user at a time (429).");
+                + "100 documents of up to 25 MB (413 when the file is too large, 409 at the document limit). A document is also marked Failed when its chunks would exceed the account's total chunk limit (3,000 demo, 20,000 own key; see chunks in GET /api/v1/me). At most 2 uploads per user at a time (429). "
+                + "Instead of the bearer token a caller may send a one-time ticket from POST /api/v1/documents/upload-ticket in the X-Upload-Ticket header (used by the web UI so the browser never holds a token).");
+        if (HttpHardening.HasUiOrigins(app.ServiceProvider.GetRequiredService<IConfiguration>()))
+        {
+            upload.RequireCors(HttpHardening.CorsPolicy); // the only route open to the UI origin
+        }
+
+        group.MapPost("upload-ticket", (ICurrentUser currentUser, UploadTicketService tickets) =>
+            {
+                if (currentUser.UserId is not { } userId)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var (ticket, expiresIn) = tickets.Issue(userId);
+                return Results.Ok(new UploadTicketResponse(ticket, expiresIn));
+            })
+            .Produces<UploadTicketResponse>()
+            .WithSummary("Get a one-time upload ticket")
+            .WithDescription("Returns a ticket valid for 60 seconds and one use, bound to the caller, for the X-Upload-Ticket header of POST /api/v1/documents. "
+                + "It lets a browser send a large file straight to the API without holding the access token (Vercel functions cannot take bodies over about 4.5 MB). Unused tickets are limited to 5 per user.");
 
         group.MapGet("", async (AppDbContext db, CancellationToken ct) =>
             {

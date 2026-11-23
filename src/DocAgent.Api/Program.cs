@@ -9,6 +9,7 @@ using DocAgent.Api.Security;
 using DocAgent.Api.Qa;
 using DocAgent.Api.Data;
 using DocAgent.Core.Abstractions;
+using DocAgent.Core.Auth;
 using DocAgent.Core.Entities;
 using DocAgent.Infrastructure.Auth;
 using DocAgent.Infrastructure.Data;
@@ -165,6 +166,7 @@ builder.Services.AddResourceRateLimits(builder.Configuration); // per-user concu
 
 // ---- HTTP hardening (SRS SEC-4): CORS for the UI origin(s) only, trusted proxy headers, HSTS ----
 builder.Services.AddUiCors(builder.Configuration);
+builder.Services.AddSingleton<UploadTicketService>();
 builder.Services.AddForwardedHeadersIfEnabled(builder.Configuration);
 builder.Services.AddHsts(options =>
 {
@@ -213,6 +215,7 @@ if (app.Configuration.GetValue("HttpsRedirection:Enabled", true))
 }
 app.UseRequestBodyLimit(app.Configuration);
 app.UseUiCors(app.Configuration);
+app.UseUploadTicketAuthentication(); // A3: X-Upload-Ticket on POST /documents only
 
 app.UseAuthentication();
 app.UseAuthorization();

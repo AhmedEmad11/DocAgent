@@ -52,7 +52,7 @@ test.describe("register, confirm, sign in", () => {
     await expect(page.getByText("Your email address is confirmed.")).toBeVisible();
     await page.getByRole("link", { name: "Continue" }).click();
     await expect(page.getByTestId("unconfirmed")).toHaveCount(0);
-    await expect(page.getByText("Your documents will appear here soon.")).toBeVisible();
+    await expect(page.getByTestId("empty")).toBeVisible();
   });
 
   test("a wrong or missing confirmation link says so", async ({ page }) => {

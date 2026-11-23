@@ -1,6 +1,6 @@
 import createMiddleware from "next-intl/middleware";
 import { NextRequest } from "next/server";
-import { buildCsp } from "@/lib/csp";
+import { apiOriginFor, buildCsp } from "@/lib/csp";
 import { cookieOptions } from "@/lib/session/cookie";
 import { removeCookieFromHeader, setCookieInHeader } from "@/lib/session/cookie-header";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/session/model";
@@ -12,7 +12,11 @@ const handleI18n = createMiddleware(routing);
 // Next.js 16 "proxy" (formerly middleware): session refresh, locale routing and the per-request CSP nonce (UI-SEC-4).
 export default async function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
-  const csp = buildCsp(nonce, process.env.NODE_ENV !== "production");
+  const csp = buildCsp(
+    nonce,
+    process.env.NODE_ENV !== "production",
+    apiOriginFor(request.nextUrl.pathname, process.env.DOCAGENT_API_URL),
+  );
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);

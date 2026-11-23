@@ -24,6 +24,9 @@ export interface MockState {
   untrustedCalls: number;
   externalOutcome: string;
   lastExchangeCode: string | null;
+  ticketsIssued: number;
+  uploads: { name: string; size: number; auth: "ticket" | "bearer" }[];
+  listCalls: number;
 }
 export const mockState = () => mock<MockState>("/__test/state");
 export const mailbox = (email: string) =>
@@ -51,3 +54,22 @@ export async function newUser(prefix = "iso") {
   await mock("/__test/user", { email });
   return email;
 }
+
+export interface SeedDocument {
+  fileName: string;
+  status?: "Pending" | "Processing" | "Ready" | "Failed";
+  sizeBytes?: number;
+  chunkCount?: number;
+  failureReason?: string | null;
+  extractionNotice?: string | null;
+}
+
+/** Replaces the user's documents on the mock; a seeded status stays as given (the list does not advance it). */
+export const seedDocuments = (
+  email: string,
+  documents: SeedDocument[],
+  extra: { hasKey?: boolean; chunksUsed?: number } = {},
+) => mock("/__test/documents", { email, documents, ...extra });
+
+export const nextUploadError = (status: number, code?: string, retryAfter?: number) =>
+  mock("/__test/next-upload-error", { status, code, retryAfter });

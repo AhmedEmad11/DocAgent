@@ -27,6 +27,7 @@ export default defineConfig({
         MOCK_API_PORT: String(mockApiPort),
         MOCK_BFF_SECRET: e2eEnv.BFF_SHARED_SECRET,
         MOCK_ALLOWED_RETURN: `${baseURL}/api/auth/external/callback`,
+        MOCK_UI_ORIGIN: baseURL,
       },
       reuseExistingServer: !process.env.CI,
     },
