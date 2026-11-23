@@ -25,6 +25,12 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-23: API live on SnapDeploy
+- Deployed at https://docagent-a6971.containers.snapdeploy.app (SnapDeploy appended a suffix to the name). Startup applied the 7 migrations on Neon; `/health/live`, `/health/ready` and `/openapi/v1.json` return 200; security headers present; a foreign Host gets 403; wrong-password login 401 ProblemDetails; external login 404 until the OAuth apps exist.
+- Issues met on the way: 3-stage and >3,000-byte Dockerfile refused (fixed earlier); x64 assembly on the arm64 host (fixed); truncated certificate value and a malformed connection string pasted into the dashboard (re-entered); `AllowedHosts` had to match the suffixed host. No HSTS because the Cloudflare edge sends no `X-Forwarded-Proto`: `ForwardedHeaders__AssumeHttps=true` documented as required.
+- Docs: live URL in README, DEPLOYMENT, plan and SRS; DEPLOYMENT notes the name suffix, AllowedHosts match, and that a failed start deletes the container and its variables.
+- Not yet verified on the live API: register/confirm email (Brevo), upload/ingestion memory on arm64, demo question, wake after sleep.
+
 ### 2026-11-22: Phase 9.1 (authentication and BFF) built; awaiting the stakeholder checkpoint
 - Web: session in a `jose` JWE cookie (AES-256-GCM, httpOnly, SameSite=Lax, `__Host-` on https, 14 days, `SESSION_SECRET_PREVIOUS` rotation, ~2.3 KB, fails loudly above 3,800 chars); token refresh in the proxy and on 401 with single-flight and 10 s reuse; tokens never reach the browser. API client (ProblemDetails, `X-Client-IP` + `X-Bff-Secret`), allowlisted `/api/proxy/[...path]` with Origin check and body cap. Pages: sign-in, register, check-email (resend), confirm (POST button, link scanners cannot consume the code), forgot/reset password, sign-out (POST), `/documents` placeholder; external login with a sealed one-time nonce (login CSRF); safe `next` redirects; en/ar strings (Arabic first draft, review at the checkpoint). New pins: jose 6.2.18, react-hook-form 7.92.0, server-only 0.0.1.
 - API: A2 dev `AllowedReturnUrls` narrowed to the UI callback; A4 `X-Client-IP` trusted only with a matching `Bff:SharedSecret` (constant-time, min 16 chars, unset = off); A5 `Email:ConfirmationUrlBase` (emailed link opens the UI confirm page).

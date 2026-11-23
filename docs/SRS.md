@@ -109,7 +109,7 @@ Client ──HTTPS──► ASP.NET Core API (SnapDeploy; Azure Container Apps a
 
 ### 2.4 Constraints
 - C1: Every hosted component must fit a free tier without a credit card (SnapDeploy free tier, Neon free tier; originally Azure Container Apps free grant, changed 2026-11-21, D43).
-- C1a: SnapDeploy free-tier limits that shape the design: 512 MB RAM, 0.25 vCPU, 100 container-hours per month for the whole account, sleep after 15 minutes idle with about 1 minute to wake, fixed URL `https://docagent.containers.snapdeploy.app` (no custom domain on free), and a limit of 100 requests per minute per IP at its edge (429 beyond it).
+- C1a: SnapDeploy free-tier limits that shape the design: 512 MB RAM, 0.25 vCPU, 100 container-hours per month for the whole account, sleep after 15 minutes idle with about 1 minute to wake, fixed URL `https://docagent-a6971.containers.snapdeploy.app` (no custom domain on free), and a limit of 100 requests per minute per IP at its edge (429 beyond it).
 - C2: Neon free tier storage is limited (0.5 GB at the time of writing), so per-user document limits are required (D19). Only extracted text and embeddings are stored (originals are discarded), which is much smaller than the file sizes, but many BYOK users at the 100-document limit could still fill it; storage usage must be monitored.
 - C6: The production email provider must have a free tier; its daily sending limit caps confirmation and reset emails. Chosen in Phase 8.
 - C3: The embedding model must be identical in every environment; changing it requires re-embedding all chunks.

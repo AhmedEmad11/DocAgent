@@ -8,7 +8,7 @@ What runs where:
 
 | Part | Service | Cost model |
 |---|---|---|
-| API (built from this repository's `Dockerfile`) | SnapDeploy free tier, one container named `docagent`: https://docagent.containers.snapdeploy.app | free; 512 MB RAM, 0.25 vCPU, 100 container-hours/month, sleeps when idle |
+| API (built from this repository's `Dockerfile`) | SnapDeploy free tier, one container named `docagent`: https://docagent-a6971.containers.snapdeploy.app | free; 512 MB RAM, 0.25 vCPU, 100 container-hours/month, sleeps when idle |
 | Database (Postgres + pgvector) | Neon free tier | free, 0.5 GB |
 | Confirmation / reset email | Brevo SMTP relay (`smtp-relay.brevo.com:587`, STARTTLS) | free tier (300 emails/day) |
 | Demo LLM | OpenRouter, free models, operator key | free |
@@ -34,12 +34,14 @@ What runs where:
 2. **Neon**, **Brevo**, **OpenRouter**, **Data Protection certificate**: follow sections 2.4 to 2.7 (they are host-independent). Differences for SnapDeploy: in 2.4 choose the Neon region closest to SnapDeploy's region; pgvector needs nothing by hand because the first migration runs `CREATE EXTENSION vector` (run `CREATE EXTENSION IF NOT EXISTS vector;` in Neon's SQL editor if that ever fails). Use the **direct** connection (no `-pooler`), in Npgsql form, as in 2.4.
 
 ### S3. Environment variables for the container `docagent`
+The first deploy got the name `docagent-a6971` (SnapDeploy appends a suffix when the name is taken), so the live URL is `https://docagent-a6971.containers.snapdeploy.app` and `AllowedHosts` must be exactly that host: a mismatch answers every request with 400. Each failed start deletes the container and its variables, so re-enter all of them on a retry; copy long values straight from the files (`tr -d '\n' < file | clip.exe` in WSL) to avoid truncation.
+
 You enter these in the SnapDeploy UI for the container (Environment Variables). **Secrets: type them into the SnapDeploy UI yourself; never paste them into chat, commits or issues.** `PORT` is set by SnapDeploy; do not set it (the app listens on it, S4).
 
 | Variable | Value | Secret |
 |---|---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` (already the image default; harmless to repeat) | no |
-| `AllowedHosts` | `docagent.containers.snapdeploy.app` (add `;localhost` only if SnapDeploy's health check turns out to send another Host, S4) | no |
+| `AllowedHosts` | `docagent-a6971.containers.snapdeploy.app` (add `;localhost` only if SnapDeploy's health check turns out to send another Host, S4) | no |
 | `Database__MigrateOnStartup` | `true` | no |
 | `ConnectionStrings__docagentdb` | the Neon connection string from 2.4 (`Host=...;Database=docagentdb;Username=...;Password=...;SSL Mode=VerifyFull;Gss Encryption Mode=Disable;Maximum Pool Size=5;Timeout=30`) | **yes** |
 | `Llm__Demo__OpenRouterApiKey` | your OpenRouter key (2.6) | **yes** |
@@ -51,7 +53,7 @@ You enter these in the SnapDeploy UI for the container (Environment Variables). 
 | `Email__FromName` | `DocAgent` | no |
 | `ForwardedHeaders__Enabled` | `true` (already the Production default) | no |
 | `ForwardedHeaders__ForwardLimit` | `1` (default; raise to 2 if SnapDeploy chains two proxies and the logged client IP is the edge's, S4) | no |
-| `ForwardedHeaders__AssumeHttps` | `false` (set `true` only if the OAuth redirect URI the app builds is `http://`, S4) | no |
+| `ForwardedHeaders__AssumeHttps` | `true` (verified at the first deploy: SnapDeploy's Cloudflare edge sends no `X-Forwarded-Proto`, so without it there is no HSTS and OAuth builds `http://` callbacks, S4) | no |
 | `Authentication__External__AllowedReturnUrls__0` | the UI origin, for example `https://<your-ui>.vercel.app` (leave out until the UI exists) | no |
 | `Authentication__Google__ClientId` / `Authentication__GitHub__ClientId` | OAuth client ids (S7) | no |
 | `Authentication__Google__ClientSecret` / `Authentication__GitHub__ClientSecret` | OAuth client secrets (S7) | **yes** |
@@ -65,8 +67,8 @@ The same values work as a deploy call's environment (SnapDeploy API / MCP `set_e
 ### S4. How the app behaves behind SnapDeploy's edge
 - **Port.** SnapDeploy passes `PORT` and auto-detects the port. The app listens on `PORT` when it is set (all interfaces, plain HTTP, `HTTP_PORTS` mapping in `Program.cs`), otherwise on 8080 (the image default, which Azure uses). A non-numeric `PORT` stops the startup with a message.
 - **TLS** ends at the edge. Production has the app's own https redirect off (`HttpsRedirection__Enabled=false`): platform health probes use plain HTTP and would only get a redirect.
-- **Forwarded headers: unverified.** What SnapDeploy's edge forwards is not documented. The app trusts `X-Forwarded-For` and `X-Forwarded-Proto` (limit 1, `ForwardedHeaders__*`) so that the per-IP auth rate limit sees real client IPs, HSTS is sent and OAuth builds `https://` callback URLs. **Check after the first deploy** (smoke test S6, item 2 and 12): `curl -i https://docagent.containers.snapdeploy.app/health/live` should show `Strict-Transport-Security`. If it does not, the edge sends no `X-Forwarded-Proto`: set `ForwardedHeaders__AssumeHttps=true` (every request is then treated as https; safe because the app is reachable only through the edge). If the edge sends no `X-Forwarded-For` either, all users share one rate-limit bucket for the auth endpoints (10 requests/minute for everybody): raise `RateLimiting__Auth__PermitLimit` until that is sorted out. The trust of forwarded headers is only safe while the container is reachable solely through the edge (no other public route).
-- **`AllowedHosts`** must name the public host; Production refuses `*`. Probes that send another `Host` (a container IP, `localhost`) get 400 from `AllowedHosts`; if SnapDeploy's own health check does that, add it: `AllowedHosts=docagent.containers.snapdeploy.app;localhost`.
+- **Forwarded headers: unverified.** What SnapDeploy's edge forwards is not documented. The app trusts `X-Forwarded-For` and `X-Forwarded-Proto` (limit 1, `ForwardedHeaders__*`) so that the per-IP auth rate limit sees real client IPs, HSTS is sent and OAuth builds `https://` callback URLs. **Check after the first deploy** (smoke test S6, item 2 and 12): `curl -i https://docagent-a6971.containers.snapdeploy.app/health/live` should show `Strict-Transport-Security`. If it does not, the edge sends no `X-Forwarded-Proto`: set `ForwardedHeaders__AssumeHttps=true` (every request is then treated as https; safe because the app is reachable only through the edge). If the edge sends no `X-Forwarded-For` either, all users share one rate-limit bucket for the auth endpoints (10 requests/minute for everybody): raise `RateLimiting__Auth__PermitLimit` until that is sorted out. The trust of forwarded headers is only safe while the container is reachable solely through the edge (no other public route).
+- **`AllowedHosts`** must name the public host; Production refuses `*`. Probes that send another `Host` (a container IP, `localhost`) get 400 from `AllowedHosts`; if SnapDeploy's own health check does that, add it: `AllowedHosts=docagent-a6971.containers.snapdeploy.app;localhost`.
 - **Health endpoints**: `GET /health/live` (process up, no database) and `GET /health/ready` (includes the database). Use `/health/live` as the container's health check path if SnapDeploy asks for one, so a database hiccup does not mark the container dead; `/health/ready` for checking the deployment.
 - **OAuth**: with the Production defaults the external sign-in code hand-off allows only the URLs in `Authentication__External__AllowedReturnUrls__N`. Callbacks stay `/signin-google` and `/signin-github` on the API host.
 
@@ -76,26 +78,26 @@ There is no pre-deploy hook, so set `Database__MigrateOnStartup=true` (it is `fa
 ### S6. First deploy and smoke test
 1. In SnapDeploy: new container from the connected GitHub repository, branch `main`, name `docagent`, build with the repository's `Dockerfile` (root). The first build downloads the 140 MB embedding model (SHA-256 verified) and takes several minutes.
 2. Set the environment variables of S3 (**before** the first start; the app refuses to start without `AllowedHosts`, the operator key and the certificate, with a message that names the setting), then deploy.
-3. `curl https://docagent.containers.snapdeploy.app/health/ready` answers `Healthy` (the first call after sleep sees the 503 wake page for up to a minute).
+3. `curl https://docagent-a6971.containers.snapdeploy.app/health/ready` answers `Healthy` (the first call after sleep sees the 503 wake page for up to a minute).
 4. Create the OAuth apps (S7), set their variables, restart.
 5. Run the checks below (the acceptance criteria of SRS section 8 plus the hosting checks). A checkmark means a person ran it against the live deployment; **none has been run yet**.
 
 | # | Check | SRS |
 |---|---|---|
 | 1 | Register, receive the confirmation email (check spam, 2.5), confirm, sign in; upload a pdf, a docx and a md/txt file and see each reach `Ready` (the first ingestion after a wake loads the model; see S1 for timing); ask a question and get a cited answer (demo mode). | AC 1 |
-| 2 | `curl -i https://docagent.containers.snapdeploy.app/health/live`: has `Strict-Transport-Security`, no `Server` header (else S4: `AssumeHttps`); `curl -H "Host: evil.example" ...` straight to the container IP is rejected (400) where reachable; `/openapi/v1.json` is served. | SEC-4, S-18 |
+| 2 | `curl -i https://docagent-a6971.containers.snapdeploy.app/health/live`: has `Strict-Transport-Security`, no `Server` header (else S4: `AssumeHttps`); `curl -H "Host: evil.example" ...` straight to the container IP is rejected (400) where reachable; `/openapi/v1.json` is served. | SEC-4, S-18 |
 | 3 | Second account cannot see, cite, list or delete the first account's documents (404/empty). | AC 2 |
 | 4 | Save a BYOK key (`PUT /api/v1/me/llm-key`), ask: the answer comes from that provider; delete the key: back to demo. **Redeploy, then ask again with the saved key**: it must still decrypt (the key ring lives in Neon, encrypted by your certificate). | AC 3, SEC-1 |
 | 5 | Demo limits: the 11th question of the UTC day returns 429 `demo_quota_exceeded`; a 4th document is refused. | AC 4 |
 | 6 | Summarize and compare two documents: results include citations. | AC 5 |
-| 7 | Sign in with Google and with GitHub (needs S7; the UI return URL for the hand-off, or call `/api/v1/auth/external/...` and read the redirect: the `redirect_uri` must be `https://docagent.containers.snapdeploy.app/signin-...`). | AUTH-3/4 |
+| 7 | Sign in with Google and with GitHub (needs S7; the UI return URL for the hand-off, or call `/api/v1/auth/external/...` and read the redirect: the `redirect_uri` must be `https://docagent-a6971.containers.snapdeploy.app/signin-...`). | AUTH-3/4 |
 | 8 | Auth rate limit: 11 wrong logins in a minute from one machine give 429, while a second machine/network is not limited (forwarded headers work). | SEC-8 |
 | 9 | Sleep and wake: leave it 20 minutes, call `/health/live` (wake page for up to a minute, then 200); upload a large file and close the browser: ingestion resumes after the next wake (S8). | AC 6 |
 | 10 | SnapDeploy dashboard: memory stays under 512 MB, container-hours stay within the plan; Neon: storage well under 0.5 GB. Logs show structured request logs and no secrets. | AC 6, OBS-1 |
 
 ### S7. OAuth apps with the SnapDeploy URL
-- **Google** (https://console.cloud.google.com/apis/credentials): OAuth client, type Web application, name `DocAgent prod`. Authorized redirect URI: `https://docagent.containers.snapdeploy.app/signin-google`. Publish the consent screen to Production for users other than test users (basic scopes need no review).
-- **GitHub** (https://github.com/settings/developers): OAuth App `DocAgent (prod)`. Homepage `https://docagent.containers.snapdeploy.app`, callback `https://docagent.containers.snapdeploy.app/signin-github`.
+- **Google** (https://console.cloud.google.com/apis/credentials): OAuth client, type Web application, name `DocAgent prod`. Authorized redirect URI: `https://docagent-a6971.containers.snapdeploy.app/signin-google`. Publish the consent screen to Production for users other than test users (basic scopes need no review).
+- **GitHub** (https://github.com/settings/developers): OAuth App `DocAgent (prod)`. Homepage `https://docagent-a6971.containers.snapdeploy.app`, callback `https://docagent-a6971.containers.snapdeploy.app/signin-github`.
 - Put the client ids and secrets in the SnapDeploy environment (S3). A provider is enabled only when both its id and its secret are set. If the container is named differently, use that URL.
 
 ### S8. Ingestion and sleep

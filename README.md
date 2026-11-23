@@ -7,7 +7,7 @@ A document Q&A API: users upload documents and ask questions about them. Answers
 - Progress log: [docs/PROGRESS.md](docs/PROGRESS.md)
 
 ## Status
-Phase 7 (hardening) implemented; Phase 8 (deployment) is prepared in the repository for the SnapDeploy free tier (Azure Container Apps kept as an alternative): nothing is deployed yet. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and the progress log.
+Phase 7 (hardening) implemented; the API is deployed on the SnapDeploy free tier at https://docagent-a6971.containers.snapdeploy.app (OpenAPI at `/openapi/v1.json`; it sleeps after 15 minutes idle and takes about a minute to wake). Azure Container Apps is kept as an alternative. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and the progress log.
 
 ## Prerequisites
 - .NET 10 SDK
@@ -125,7 +125,7 @@ DOCAGENT_PERF_TESTS=1 dotnet test tests/DocAgent.IntegrationTests --filter "Full
 
 ## Deploy (Phase 8)
 Primary target: the **SnapDeploy free tier** (no credit card): the API runs from this repository's `Dockerfile` in a 512 MB / 0.25 vCPU container (sleeps after 15 minutes without traffic, 100 container-hours a month), with a Neon Postgres database, email through Brevo SMTP and the OpenRouter demo model. Azure Container Apps (Bicep + GitHub workflow, scale to zero) is kept as an alternative. Step by step (accounts, the exact environment variables and which are secrets, first deploy, OAuth apps, smoke test, limits, memory numbers): **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
-- `Dockerfile`: multi-stage, non-root, the embedding model is downloaded and SHA-256 verified at build time, tuned for 512 MB (workstation GC, small embedding batches, no ONNX memory arena). Listens on `PORT` when the host sets it (SnapDeploy), otherwise 8080. `docker build -t docagent-api .`
+- `Dockerfile`: two stages and under 3,000 bytes (SnapDeploy free-tier limits, checked in CI), builds for the host's architecture (SnapDeploy is arm64), non-root, the embedding model is downloaded and SHA-256 verified at build time, tuned for 512 MB (workstation GC, small embedding batches, no ONNX memory arena). Listens on `PORT` when the host sets it (SnapDeploy), otherwise 8080. `docker build -t docagent-api .`
 - Migrations: `Database__MigrateOnStartup=true` applies them at startup under a Postgres advisory lock (hosts without a pre-deploy hook, SnapDeploy); a failure stops the startup with a clear message. Default `false` in Production. `docker run --rm -e ConnectionStrings__docagentdb=... docagent-api --migrate` applies them and exits (the Azure deploy step, or a one-off run).
 - `infra/main.bicep` + `infra/main.bicepparam`, `.github/workflows/deploy.yml`: the Azure path (Container Apps, min 0 / max 1 replica, probes, secrets; after CI on `main` it builds, pushes, migrates, deploys). It skips itself cleanly until the Azure and Neon settings exist and is not used for SnapDeploy.
 - In Production the app **refuses to start** without: `AllowedHosts` set to the public host (not `*`), the operator OpenRouter key, and the Data Protection certificate (`DataProtection__CertificatePfxBase64` / `__CertificatePassword`). The Data Protection key ring (which encrypts users' stored LLM keys) is kept in the database and encrypted with that certificate; Development keeps the default local key files and needs no certificate.
