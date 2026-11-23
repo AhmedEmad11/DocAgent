@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { dynamicT } from "@/i18n/dynamic";
+import { Link } from "@/i18n/navigation";
 import type { ApiDocument } from "@/lib/api/documents-schema";
 import { formatBytes } from "@/lib/documents/format";
 import { documentKind } from "@/lib/documents/limits";
@@ -93,6 +94,11 @@ export function DocumentRow({
       ) : null}
 
       <div className="flex flex-wrap gap-2">
+        {doc.status === "Ready" ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={{ pathname: "/ask", query: { doc: doc.id } }}>{t("actions.ask")}</Link>
+          </Button>
+        ) : null}
         {extraActions}
         <Button
           type="button"

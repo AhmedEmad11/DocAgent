@@ -1,7 +1,8 @@
 // Mock of the DocAgent API for e2e (plan 9.0, SRS 10.5). It mirrors the real responses of ASP.NET Core Identity's API endpoints
 // (verified against the plan's A8 notes): register/reset validation problems keyed by Identity error code, login 401 with
 // detail "Failed"/"LockedOut", /refresh returning a NEW refresh token while the old one stays valid, confirmEmail 200 text or 401.
-// Documents (9.2) include the upload-ticket flow with CORS on the upload route only (plan A3); ask comes in 9.3.
+// Documents (9.2) include the upload-ticket flow with CORS on the upload route only (plan A3); ask and the SSE stream (9.3) are scripted by
+// keywords in the question (see askScript).
 // Everything in memory; test hooks live under /__test/.
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
@@ -31,6 +32,7 @@ const state = {
   ticketsIssued: 0,
   uploads: [], // {name, size, auth: "ticket" | "bearer"}
   listCalls: 0,
+  ask: { started: 0, aborted: 0, abortedQuestions: [], completed: 0, bodies: [] },
 };
 const tickets = new Map(); // ticket -> {email, expires}
 const UI_ORIGIN = process.env.MOCK_UI_ORIGIN ?? "http://127.0.0.1:3100";
@@ -156,6 +158,86 @@ function publicDoc(d) {
   return out;
 }
 
+const PRIVACY =
+  "Demo mode: your questions and the matching document excerpts are sent to a free third-party model that may log them.";
+
+/** The answer for a question, scripted by keywords (see the ask handler). */
+function makeAnswer(q, ready, documentIds) {
+  const scope =
+    Array.isArray(documentIds) && documentIds.length
+      ? ready.filter((d) => documentIds.includes(d.id))
+      : ready;
+  const doc = scope[0];
+  const cite = (index, quote, extra = {}) => ({
+    index,
+    documentId: doc.id,
+    fileName: doc.fileName,
+    pageNumber: 3,
+    section: null,
+    quote,
+    ...extra,
+  });
+  const base = {
+    answer:
+      "Rent is due on the first day of each month [1]. A late fee of 5% applies after ten days [2].",
+    notFound: false,
+    citations: [
+      cite(1, "Rent is payable on the first day of each month."),
+      cite(2, "A late fee of 5% applies after ten days.", { pageNumber: 4 }),
+    ],
+    mode: "byok",
+    provider: "openrouter",
+    model: "example/test-model",
+    incomplete: false,
+    toolCalls: 2,
+    notices: [],
+  };
+  if (q.includes("notfound"))
+    return { ...base, answer: "The documents do not mention this.", notFound: true, citations: [] };
+  if (q.includes("incomplete")) return { ...base, incomplete: true };
+  if (q.includes("demomode"))
+    return {
+      ...base,
+      mode: "demo",
+      provider: "openrouter",
+      model: "free/demo-model",
+      notices: [PRIVACY],
+    };
+  if (q.includes("notice"))
+    return { ...base, notices: ["Arabic text was repaired after extraction; check the wording."] };
+  if (q.includes("arabic") || /[؀-ۿ]/.test(q))
+    return {
+      ...base,
+      answer:
+        "يستحق الإيجار في اليوم الأول من كل شهر [1]. تُطبَّق غرامة تأخير بعد عشرة أيام [2].\n\nRent is due on the 1st.",
+      citations: [
+        cite(1, "يُدفع الإيجار في اليوم الأول من كل شهر.", { section: "البند 4" }),
+        cite(2, "A late fee applies after ten days."),
+      ],
+    };
+  if (q.includes("inject"))
+    return {
+      ...base,
+      answer:
+        'Safe text [1] <script>window.__pwned=1</script> <img src=x onerror="window.__pwned=1">\n\n[click me](javascript:window.__pwned=1) and [fine](https://example.com/page) and ![pixel](https://evil.test/p.png)\n\n<iframe src="https://evil.test"></iframe>',
+      citations: [cite(1, "A quote with <b>markup</b> and a [link](javascript:alert(1)).")],
+    };
+  if (q.includes("badcitation"))
+    return {
+      ...base,
+      answer: "Only one source [1], and a marker without a source [9].",
+      citations: [cite(1, "Only quote.")],
+    };
+  if (q.includes("long"))
+    return {
+      ...base,
+      answer: Array.from({ length: 12 }, (_, i) => `Paragraph ${i + 1} with some words [1].`).join(
+        "\n\n",
+      ),
+    };
+  return base;
+}
+
 const IDENTITY_MESSAGES = {
   PasswordTooShort: "Passwords must be at least 6 characters.",
   PasswordRequiresNonAlphanumeric: "Passwords must have at least one non alphanumeric character.",
@@ -223,6 +305,7 @@ async function handle(req, res) {
         ticketsIssued: 0,
         uploads: [],
         listCalls: 0,
+        ask: { started: 0, aborted: 0, abortedQuestions: [], completed: 0, bodies: [] },
       });
       return json(res, 200, state);
     }
@@ -570,6 +653,116 @@ async function handle(req, res) {
         return res.end();
       }
     }
+  }
+
+  // ---- ask (9.3): POST /ask and POST /ask/stream, scripted by keywords in the question ----
+  if ((route === "/ask" || route === "/ask/stream") && req.method === "POST") {
+    if (!bearerUser) {
+      res.writeHead(401);
+      return res.end();
+    }
+    const user = users.get(bearerUser);
+    if (!user.confirmed) return problem(res, 403, "Forbidden");
+    const body = await readJson(req);
+    const question = String(body.question ?? "").trim();
+    if (!question) return problem(res, 400, "Bad request", { detail: "'question' is required." });
+    if (question.length > 2000)
+      return problem(res, 400, "Bad request", {
+        detail: "'question' must be at most 2000 characters.",
+      });
+    const ready = (user.docs ?? []).filter((d) => d.status === "Ready");
+    if (ready.length === 0)
+      return problem(res, 409, "Conflict", {
+        detail:
+          "You have no documents that are ready yet. Upload a document and wait until its status is Ready.",
+      });
+    if (
+      Array.isArray(body.documentIds) &&
+      body.documentIds.some((id) => !ready.some((d) => d.id === id))
+    )
+      return problem(res, 400, "Bad request", {
+        detail: "These documents do not exist or are not ready.",
+      });
+    const q = question.toLowerCase();
+    state.ask.bodies.push({
+      question,
+      documentIds: body.documentIds ?? null,
+      auth: req.headers.authorization ? "bearer" : "none",
+    });
+    for (const [word, status, code] of [
+      ["quota", 429, "demo_quota_exceeded"],
+      ["nokey", 403, "llm_key_required"],
+      ["badkey", 422, "llm_key_invalid"],
+      ["nocredit", 402, "llm_no_credit"],
+      ["unreadable", 409, "llm_key_unreadable"],
+      ["rejected", 502, "llm_request_rejected"],
+      ["unknownmodel", 422, "llm_model_unknown"],
+      ["demooff", 503, "demo_unavailable"],
+    ]) {
+      if (q.includes(word))
+        return problem(
+          res,
+          status,
+          "Error",
+          { code, detail: "English detail text." },
+          status === 429 ? { "retry-after": "60" } : {},
+        );
+    }
+    if (q.includes("busy429"))
+      return problem(res, 429, "Too many requests", {}, { "retry-after": "2" });
+    const answer = makeAnswer(q, ready, body.documentIds);
+    if (route === "/ask") return json(res, 200, answer);
+
+    state.ask.started++;
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      "x-accel-buffering": "no",
+    });
+    let closed = false;
+    res.on("close", () => {
+      if (!res.writableEnded) {
+        closed = true;
+        state.ask.aborted++;
+        state.ask.abortedQuestions.push(question);
+      }
+    });
+    const send = (name, data) =>
+      !closed && res.write(`event: ${name}\ndata: ${JSON.stringify(data ?? {})}\n\n`);
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const pause = q.includes("slow") ? 700 : 30;
+    send("searching");
+    await wait(pause);
+    if (q.includes("hang")) {
+      while (!closed) await wait(50); // until the client (through the BFF) goes away
+      return;
+    }
+    if (q.includes("dropped")) {
+      res.destroy();
+      return;
+    }
+    send("tool_call", { tool: "search_documents" });
+    await wait(pause);
+    send("tool_call", { tool: "read_chunk" });
+    await wait(pause);
+    if (q.includes("ratelimit")) {
+      send("error", {
+        status: 429,
+        title: "Too many requests",
+        code: "demo_rate_limited",
+        retryAfter: 3,
+      });
+      return res.end();
+    }
+    if (q.includes("timeout")) {
+      send("error", { status: 504, title: "Timed out" });
+      return res.end();
+    }
+    send("verifying");
+    await wait(pause);
+    send("answer", answer);
+    state.ask.completed++;
+    return res.end();
   }
 
   if (route === "/me" && req.method === "GET") {

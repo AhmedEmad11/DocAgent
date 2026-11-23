@@ -27,6 +27,13 @@ export interface MockState {
   ticketsIssued: number;
   uploads: { name: string; size: number; auth: "ticket" | "bearer" }[];
   listCalls: number;
+  ask: {
+    started: number;
+    aborted: number;
+    abortedQuestions: string[];
+    completed: number;
+    bodies: { question: string; documentIds: string[] | null; auth: string }[];
+  };
 }
 export const mockState = () => mock<MockState>("/__test/state");
 export const mailbox = (email: string) =>

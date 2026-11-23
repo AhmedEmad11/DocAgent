@@ -285,6 +285,53 @@
       "cancel": "Cancel",
       "deleting": "Deleting",
       "announce": "{name} was deleted."
+    },
+    "actions": {
+      "ask": "Ask about this document"
     }
+  },
+  "Ask": {
+    "title": "Ask",
+    "intro": "Ask a question about your documents. Every answer comes with the quotes it is based on.",
+    "questionLabel": "Your question",
+    "counter": "{count} / {max}",
+    "scopeLegend": "Which documents?",
+    "scopeAll": "All my ready documents ({count})",
+    "scopeSome": "Only the documents I choose",
+    "scopeNone": "Nothing chosen yet, so all ready documents are used.",
+    "submit": "Ask",
+    "cancel": "Cancel",
+    "cancelled": "You cancelled this question.",
+    "cancelledAnnounce": "The question was cancelled.",
+    "retry": "Ask again",
+    "conversation": "Questions and answers",
+    "youAsked": "You asked",
+    "progress": "Progress",
+    "answerReady": "The answer is ready.",
+    "noReady": "You have no documents that are ready yet.",
+    "noReadyHint": "Upload a document and wait until its status is Ready.",
+    "toDocuments": "Go to your documents",
+    "stages": {
+      "starting": "Sending your question",
+      "searching": "Searching your documents",
+      "checking": "Checking sources",
+      "verifying": "Verifying the answer"
+    },
+    "errors": {
+      "empty": "Enter a question."
+    }
+  },
+  "Answer": {
+    "notFound": "This is not in your documents.",
+    "notFoundHint": "The documents you selected do not contain an answer to this question.",
+    "incomplete": "This answer may be incomplete: a limit was reached while it was being prepared. Try a narrower question or fewer documents.",
+    "citations": "Sources",
+    "page": "Page {page}",
+    "section": "Section: {section}",
+    "modeDemo": "Answered by the free demo model",
+    "modeByok": "Answered with your own key",
+    "notices": "Notices",
+    "copy": "Copy answer",
+    "copied": "Copied"
   }
 }

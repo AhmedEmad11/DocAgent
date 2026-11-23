@@ -5,7 +5,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
-const placeholderItems = ["ask", "settings", "account"] as const;
+const placeholderItems = ["settings", "account"] as const;
 const linkClass =
   "text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none";
 
@@ -33,7 +33,12 @@ export async function SiteHeader() {
                     {t("Nav.documents")}
                   </Link>
                 </li>
-                {/* Placeholders until their pages exist (9.3, 9.5). */}
+                <li>
+                  <Link href="/ask" className={linkClass}>
+                    {t("Nav.ask")}
+                  </Link>
+                </li>
+                {/* Placeholders until their pages exist (9.5). */}
                 {placeholderItems.map((item) => (
                   <li key={item}>
                     <span
