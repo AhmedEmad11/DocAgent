@@ -27,6 +27,7 @@ export interface MockState {
   ticketsIssued: number;
   uploads: { name: string; size: number; auth: "ticket" | "bearer" }[];
   listCalls: number;
+  workflows: { kind: string; ids: string[]; focus: string; auth: string }[];
   ask: {
     started: number;
     aborted: number;
@@ -63,6 +64,7 @@ export async function newUser(prefix = "iso") {
 }
 
 export interface SeedDocument {
+  id?: string;
   fileName: string;
   status?: "Pending" | "Processing" | "Ready" | "Failed";
   sizeBytes?: number;
@@ -80,3 +82,15 @@ export const seedDocuments = (
 
 export const nextUploadError = (status: number, code?: string, retryAfter?: number) =>
   mock("/__test/next-upload-error", { status, code, retryAfter });
+
+/** Turns the account into a demo account (no own key) with a daily allowance, or back to none. */
+export const setDemo = (
+  email: string,
+  extra: {
+    enabled?: boolean;
+    used?: number;
+    limit?: number;
+    hasKey?: boolean;
+    resetsAt?: string;
+  } = {},
+) => mock("/__test/demo", { email, ...extra });

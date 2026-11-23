@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchAllowed } from "./allowlist";
+import { LONG_CALL_TIMEOUT_MS, matchAllowed } from "./allowlist";
 
 const ID = "123e4567-e89b-12d3-a456-426614174000";
 const m = (method: string, path: string) => matchAllowed(method, path.split("/").filter(Boolean));
@@ -58,5 +58,14 @@ describe("proxy allowlist (UI-SEC-7)", () => {
     ] as const) {
       expect(m(method, path)?.route.headers ?? []).not.toContain("x-llm-api-key");
     }
+  });
+
+  it("long-running calls (ask, summary, compare) get a timeout above the 120 s agent limit; reads keep the default (UI-PERF-4)", () => {
+    expect(LONG_CALL_TIMEOUT_MS).toBeGreaterThan(150_000);
+    expect(m("POST", `/documents/${ID}/summary`)?.route.timeoutMs).toBe(LONG_CALL_TIMEOUT_MS);
+    expect(m("POST", "/documents/compare")?.route.timeoutMs).toBe(LONG_CALL_TIMEOUT_MS);
+    expect(m("POST", "/ask")?.route.timeoutMs).toBe(LONG_CALL_TIMEOUT_MS);
+    expect(m("GET", "/documents")?.route.timeoutMs).toBeUndefined();
+    expect(m("GET", "/me")?.route.timeoutMs).toBeUndefined();
   });
 });

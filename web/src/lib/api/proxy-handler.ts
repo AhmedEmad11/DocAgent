@@ -48,6 +48,7 @@ export async function handleProxy(req: NextRequest, segments: string[]): Promise
     headers,
     body: body || undefined,
     signal: req.signal,
+    ...(match.route.timeoutMs ? { timeoutMs: match.route.timeoutMs } : {}),
   });
   if (result.kind === "anonymous")
     return problemResponse({ status: 401, title: "Unauthorized", code: "session_ended" });

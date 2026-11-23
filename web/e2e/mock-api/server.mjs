@@ -33,6 +33,7 @@ const state = {
   uploads: [], // {name, size, auth: "ticket" | "bearer"}
   listCalls: 0,
   ask: { started: 0, aborted: 0, abortedQuestions: [], completed: 0, bodies: [] },
+  workflows: [],
 };
 const tickets = new Map(); // ticket -> {email, expires}
 const UI_ORIGIN = process.env.MOCK_UI_ORIGIN ?? "http://127.0.0.1:3100";
@@ -238,6 +239,27 @@ function makeAnswer(q, ready, documentIds) {
   return base;
 }
 
+/** Demo accounts (no own key, demo switched on by a test hook) have a daily allowance that ask, summary and compare use up. */
+const demoActive = (user) => Boolean(user.demo) && !user.hasKey;
+const demoBody = (user) =>
+  demoActive(user)
+    ? {
+        limit: user.demo.limit,
+        used: user.demo.used,
+        remaining: Math.max(0, user.demo.limit - user.demo.used),
+        resetsAt: user.demo.resetsAt,
+        privacyNotice: PRIVACY,
+      }
+    : null;
+const quotaProblem = (res, problemFn) =>
+  problemFn(
+    res,
+    429,
+    "Daily demo limit reached",
+    { code: "demo_quota_exceeded", detail: "You have used today's demo questions." },
+    { "retry-after": "3600" },
+  );
+
 const IDENTITY_MESSAGES = {
   PasswordTooShort: "Passwords must be at least 6 characters.",
   PasswordRequiresNonAlphanumeric: "Passwords must have at least one non alphanumeric character.",
@@ -306,6 +328,7 @@ async function handle(req, res) {
         uploads: [],
         listCalls: 0,
         ask: { started: 0, aborted: 0, abortedQuestions: [], completed: 0, bodies: [] },
+        workflows: [],
       });
       return json(res, 200, state);
     }
@@ -337,6 +360,19 @@ async function handle(req, res) {
         makeDocument(d.fileName, d.sizeBytes ?? 1000, d),
       );
       return json(res, 200, { count: user.docs.length });
+    }
+    if (path === "/__test/demo") {
+      const user = users.get(norm(body.email));
+      user.demo =
+        body.enabled === false
+          ? null
+          : {
+              limit: body.limit ?? 10,
+              used: body.used ?? 0,
+              resetsAt: body.resetsAt ?? new Date(Date.now() + 6 * 3600_000).toISOString(),
+            };
+      if (body.hasKey !== undefined) user.hasKey = Boolean(body.hasKey);
+      return json(res, 200, { demo: demoBody(user) });
     }
     if (path === "/__test/next-upload-error") {
       state.nextUploadError = body.status
@@ -655,6 +691,109 @@ async function handle(req, res) {
     }
   }
 
+  // ---- summary and compare (9.4): not streamed, scripted by keywords in the focus ----
+  const summaryMatch = route.match(/^\/documents\/([0-9a-f-]{36})\/summary$/);
+  if ((summaryMatch || route === "/documents/compare") && req.method === "POST") {
+    if (!bearerUser) {
+      res.writeHead(401);
+      return res.end();
+    }
+    const user = users.get(bearerUser);
+    if (!user.confirmed) return problem(res, 403, "Forbidden");
+    const body = await readJson(req);
+    const focus = String(body.focus ?? "").trim();
+    if (focus.length > 500)
+      return problem(res, 400, "Bad request", {
+        detail: "'focus' must be at most 500 characters.",
+      });
+    const ids = summaryMatch ? [summaryMatch[1]] : [body.documentIdA, body.documentIdB];
+    if (!summaryMatch) {
+      if (!body.documentIdA || !body.documentIdB)
+        return problem(res, 400, "Bad request", {
+          detail: "'documentIdA' and 'documentIdB' are required.",
+        });
+      if (body.documentIdA === body.documentIdB)
+        return problem(res, 400, "Bad request", {
+          detail: "Choose two different documents to compare.",
+        });
+    }
+    const docs = ids.map((id) => (user.docs ?? []).find((d) => d.id === id));
+    if (docs.some((d) => !d))
+      return problem(res, 404, "Not found", { detail: "Document not found." });
+    if (docs.some((d) => d.status !== "Ready"))
+      return problem(res, 409, "Conflict", { detail: "The document is not ready yet." });
+    if (demoActive(user) && user.demo.used >= user.demo.limit) return quotaProblem(res, problem);
+    state.workflows.push({
+      kind: summaryMatch ? "summary" : "compare",
+      ids,
+      focus,
+      auth: req.headers.authorization ? "bearer" : "none",
+    });
+    const f = focus.toLowerCase();
+    let closed = false;
+    res.on("close", () => {
+      if (!res.writableEnded) {
+        closed = true;
+        state.ask.abortedQuestions.push(`workflow:${focus}`);
+      }
+    });
+    for (const [word, status, code] of [
+      ["quota", 429, "demo_quota_exceeded"],
+      ["nokey", 403, "llm_key_required"],
+      ["nocredit", 402, "llm_no_credit"],
+      ["unavailable", 503, "llm_unavailable"],
+    ]) {
+      if (f.includes(word))
+        return problem(res, status, "Error", { code, detail: "English detail text." });
+    }
+    if (f.includes("timeout")) {
+      await new Promise((r) => setTimeout(r, 300));
+      return problem(res, 504, "Timed out", { detail: "The request took too long." });
+    }
+    if (f.includes("hang")) {
+      while (!closed) await new Promise((r) => setTimeout(r, 50));
+      return;
+    }
+    await new Promise((r) => setTimeout(r, f.includes("slow") ? 1500 : 100));
+    const cite = (d, index, quote) => ({
+      index,
+      documentId: d.id,
+      fileName: d.fileName,
+      pageNumber: index + 1,
+      section: null,
+      quote,
+    });
+    const demo = f.includes("demomode") || demoActive(user);
+    if (demoActive(user)) user.demo.used++;
+    const result = {
+      answer: summaryMatch
+        ? `${docs[0].fileName} sets out the rent and the notice period [1]. Termination needs 30 days' notice [2].`
+        : `Both documents cover rent [1][2]. They differ on notice: the first needs 30 days [1], the second 60 days [2].`,
+      notFound: false,
+      citations: summaryMatch
+        ? [
+            cite(docs[0], 1, "Rent is payable monthly."),
+            cite(docs[0], 2, "Termination needs 30 days' notice."),
+          ]
+        : [
+            cite(docs[0], 1, "Rent is payable monthly. Notice: 30 days."),
+            cite(docs[1], 2, "Rent is payable quarterly. Notice: 60 days."),
+          ],
+      mode: demo ? "demo" : "byok",
+      provider: "openrouter",
+      model: demo ? "free/demo-model" : "example/test-model",
+      incomplete: f.includes("incomplete"),
+      toolCalls: 0,
+      notices: [
+        ...(demo ? [PRIVACY] : []),
+        ...docs
+          .filter((d) => d.extractionNotice)
+          .map((d) => `${d.fileName}: ${d.extractionNotice}`),
+      ],
+    };
+    return json(res, 200, result);
+  }
+
   // ---- ask (9.3): POST /ask and POST /ask/stream, scripted by keywords in the question ----
   if ((route === "/ask" || route === "/ask/stream") && req.method === "POST") {
     if (!bearerUser) {
@@ -683,6 +822,7 @@ async function handle(req, res) {
       return problem(res, 400, "Bad request", {
         detail: "These documents do not exist or are not ready.",
       });
+    if (demoActive(user) && user.demo.used >= user.demo.limit) return quotaProblem(res, problem);
     const q = question.toLowerCase();
     state.ask.bodies.push({
       question,
@@ -711,7 +851,16 @@ async function handle(req, res) {
     if (q.includes("busy429"))
       return problem(res, 429, "Too many requests", {}, { "retry-after": "2" });
     const answer = makeAnswer(q, ready, body.documentIds);
-    if (route === "/ask") return json(res, 200, answer);
+    if (demoActive(user))
+      Object.assign(answer, {
+        mode: "demo",
+        model: "free/demo-model",
+        notices: [PRIVACY, ...answer.notices.filter((n) => n !== PRIVACY)],
+      });
+    if (route === "/ask") {
+      if (demoActive(user)) user.demo.used++;
+      return json(res, 200, answer);
+    }
 
     state.ask.started++;
     res.writeHead(200, {
@@ -760,6 +909,7 @@ async function handle(req, res) {
     }
     send("verifying");
     await wait(pause);
+    if (demoActive(user)) user.demo.used++;
     send("answer", answer);
     state.ask.completed++;
     return res.end();
@@ -779,7 +929,7 @@ async function handle(req, res) {
       emailConfirmed: user.confirmed,
       externalLogins: user.externalLogins,
       hasLlmKey: Boolean(user.hasKey),
-      demo: null,
+      demo: demoBody(user),
       chunks: {
         used:
           user.chunksUsed ??

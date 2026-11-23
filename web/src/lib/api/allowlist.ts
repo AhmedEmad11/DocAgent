@@ -9,10 +9,14 @@ export interface AllowedRoute {
   headers?: readonly string[];
   /** Largest request body accepted before forwarding, in bytes. */
   maxBodyBytes: number;
+  /** Upstream timeout in ms when the default (cold start, 60 s) is too short: whole-document workflows run up to the agent timeout (D20). */
+  timeoutMs?: number;
 }
 
 const ID = "[0-9a-fA-F-]{36}";
 const SMALL = 16 * 1024;
+/** Above the 120 s BYOK agent timeout (D20) plus margin; the proxy route sets `maxDuration` higher (UI-PERF-4). */
+export const LONG_CALL_TIMEOUT_MS = 170_000;
 
 export const ALLOWED_ROUTES: readonly AllowedRoute[] = [
   { method: "GET", pattern: /^\/me$/, maxBodyBytes: 0 },
@@ -34,14 +38,22 @@ export const ALLOWED_ROUTES: readonly AllowedRoute[] = [
     pattern: new RegExp(`^/documents/${ID}/summary$`),
     headers: ["content-type"],
     maxBodyBytes: SMALL,
+    timeoutMs: LONG_CALL_TIMEOUT_MS,
   },
   {
     method: "POST",
     pattern: /^\/documents\/compare$/,
     headers: ["content-type"],
     maxBodyBytes: SMALL,
+    timeoutMs: LONG_CALL_TIMEOUT_MS,
   },
-  { method: "POST", pattern: /^\/ask$/, headers: ["content-type"], maxBodyBytes: 64 * 1024 },
+  {
+    method: "POST",
+    pattern: /^\/ask$/,
+    headers: ["content-type"],
+    maxBodyBytes: 64 * 1024,
+    timeoutMs: LONG_CALL_TIMEOUT_MS,
+  },
 ];
 
 const SEGMENT = /^[A-Za-z0-9._-]{1,64}$/;

@@ -99,6 +99,20 @@ export function DocumentRow({
             <Link href={{ pathname: "/ask", query: { doc: doc.id } }}>{t("actions.ask")}</Link>
           </Button>
         ) : null}
+        {doc.status === "Ready" ? (
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link href={{ pathname: "/summary", query: { doc: doc.id } }}>
+                {t("actions.summarize")}
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={{ pathname: "/compare", query: { a: doc.id } }}>
+                {t("actions.compare")}
+              </Link>
+            </Button>
+          </>
+        ) : null}
         {extraActions}
         <Button
           type="button"

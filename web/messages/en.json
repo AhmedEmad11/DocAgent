@@ -287,7 +287,9 @@
       "announce": "{name} was deleted."
     },
     "actions": {
-      "ask": "Ask about this document"
+      "ask": "Ask about this document",
+      "summarize": "Summarize",
+      "compare": "Compare with another"
     }
   },
   "Ask": {
@@ -333,5 +335,43 @@
     "notices": "Notices",
     "copy": "Copy answer",
     "copied": "Copied"
+  },
+  "Workflow": {
+    "choose": "Choose a document",
+    "focusLabel": "Focus (optional)",
+    "focusHint": "For example: payment terms, or risks. Leave empty for a general result.",
+    "counter": "{count} / {max}",
+    "demoCost": "In demo mode this counts as one of your daily questions.",
+    "working": "Working on it",
+    "expectedWait": "This can take up to two minutes. You can cancel at any time.",
+    "cancel": "Cancel",
+    "cancelled": "You cancelled this request.",
+    "cancelledAnnounce": "The request was cancelled.",
+    "toDocuments": "Go to your documents",
+    "summary": {
+      "title": "Summarize a document",
+      "intro": "A cited summary of one document. Add a focus to steer it.",
+      "documentLabel": "Document",
+      "submit": "Summarize",
+      "resultTitle": "Summary",
+      "ready": "The summary is ready.",
+      "notEnough": "You have no documents that are ready yet."
+    },
+    "compare": {
+      "title": "Compare two documents",
+      "intro": "A cited comparison of two different documents. Add a focus to steer it.",
+      "firstLabel": "First document",
+      "secondLabel": "Second document",
+      "submit": "Compare",
+      "resultTitle": "Comparison",
+      "ready": "The comparison is ready.",
+      "notEnough": "You need at least two documents that are ready to compare them."
+    },
+    "errors": {
+      "chooseDocument": "Choose a document.",
+      "chooseTwo": "Choose two documents.",
+      "sameDocument": "Choose two different documents to compare.",
+      "focusTooLong": "The focus is too long."
+    }
   }
 }

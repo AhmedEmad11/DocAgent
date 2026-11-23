@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { Notice } from "@/components/auth/auth-card";
-import { ResendForm } from "@/components/auth/resend-form";
 import { DocumentsView } from "@/components/documents/documents-view";
+import { UnconfirmedNotice } from "@/components/unconfirmed-notice";
 import { routing } from "@/i18n/routing";
-import { listDocuments } from "@/lib/api/documents";
 import { requireUser } from "@/lib/auth/current-user";
-import { readSession } from "@/lib/session/server";
+import { loadDocuments } from "@/lib/documents/server";
 
 export async function generateMetadata({
   params,
@@ -28,30 +25,11 @@ export default async function DocumentsPage({ params }: PageProps<"/[locale]/doc
   const t = await getTranslations("Documents");
   const ta = await getTranslations("Account");
 
-  let content: React.ReactNode;
-  if (!me.emailConfirmed) {
-    content = (
-      <div className="space-y-3" data-testid="unconfirmed">
-        <Notice tone="error">
-          <p className="font-medium">{t("unconfirmedTitle")}</p>
-          <p>{t("unconfirmedBody")}</p>
-        </Notice>
-        <ResendForm knownEmail />
-        <p className="text-sm">
-          <a href={`/${locale}/documents`} className="text-primary underline underline-offset-4">
-            {t("checkAgain")}
-          </a>
-        </p>
-      </div>
-    );
-  } else {
-    const session = await readSession();
-    const result = session
-      ? await listDocuments({ visitorHeaders: await headers() }, session.at)
-      : null;
-    if (!result || !result.ok) throw new Error("The documents could not be loaded");
-    content = <DocumentsView initial={result.data} hasLlmKey={me.hasLlmKey} chunks={me.chunks} />;
-  }
+  const content = me.emailConfirmed ? (
+    <DocumentsView initial={await loadDocuments()} hasLlmKey={me.hasLlmKey} chunks={me.chunks} />
+  ) : (
+    <UnconfirmedNotice checkAgainHref={`/${locale}/documents`} />
+  );
 
   return (
     <div className="max-w-3xl space-y-6">
