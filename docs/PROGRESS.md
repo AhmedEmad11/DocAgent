@@ -25,6 +25,10 @@ Updated with each commit. Newest entries at the top.
 
 ## Log
 
+### 2026-11-24: Project explanation document; cold-start fix verified live
+- `docs/PROJECT_EXPLAINED.md`: the whole project in one place (architecture, and every significant decision with its reason, by area), linked to the SRS decision log D1–D43.
+- UI-GEN-7 verified on the live site with the API asleep: the sign-in page showed "Starting the server…" within 6 s, a sign-in submitted during sleep was retried automatically once the API woke (about 70 s) and returned the correct answer. Vercel auto-deploys `main` (Git-connected).
+
 ### 2026-11-23: UI cold-start handling (UI-GEN-7)
 - BFF: a 503 with an HTML body (SnapDeploy "Container is Sleeping"), a timeout or no connection becomes the problem `api_starting` (503, retryAfter 5) in the client, proxy, ask stream and upload ticket handlers; a bare, deduplicated (20 s) POST to the optional `DOCAGENT_API_WAKE_URL` wakes the host (no visitor data); new `GET /api/status` (calls `/health/live`, 4 s timeout, `{ ready }`, no-store).
 - Browser: `ReadinessController` (poll every 3 s, give up after 3 min with a retry button), `ApiStartingNotice` (role=status, elapsed seconds, indeterminate bar, still under reduced motion) and pre-warm on auth pages and signed-in pages; failed server actions, `bffFetch` calls and the ask stream wait for the API and retry once. Strings in en and ar.
